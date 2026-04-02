@@ -1,63 +1,112 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import Header from "./components/Header";
+import ProgressBar from "./components/ProgressBar";
+import Step1Category from "./components/Step1Category";
+import Step2Date from "./components/Step2Date";
+import Step3Map from "./components/Step3Map";
+import Step4UserInfo from "./components/Step4UserInfo";
+import Step5Success from "./components/Step5Success";
+
+// SUPABASE BAĞLANTISI
+import { supabase } from "../lib/supabase";
 
 export default function Home() {
+  const [step, setStep] = useState(1);
+  const [reservationCode, setReservationCode] = useState("");
+  
+  const [authState, setAuthState] = useState<{ isLoggedIn: boolean; userType: string | null }>({
+    isLoggedIn: false,
+    userType: null 
+  });
+
+  const [data, setData] = useState<any>({
+    category: null,
+    package: null,
+    startDate: "",
+    parcel: "",
+    customer: { name: "", phone: "", tc: "", plate: "", email: "", password: "" } 
+  });
+
+  const handleLoginSuccess = (type: string) => {
+    setAuthState({ isLoggedIn: true, userType: type });
+  };
+
+  const nextStep = () => setStep((prev) => prev + 1);
+  const prevStep = () => setStep((prev) => prev - 1);
+
+  const handleCompleteOrder = async () => {
+    const code = "M-" + Math.floor(100000 + Math.random() * 900000).toString();
+    setReservationCode(code);
+
+    const start = new Date(data.startDate);
+    const days = parseInt(String(data.package?.duration).replace(/\D/g, ''), 10) || 0;
+    const end = new Date(start.getTime() + (days * 24 * 60 * 60 * 1000));
+
+    const { error } = await supabase
+      .from('reservations')
+      .insert([
+        {
+          id: code,
+          name: data.customer.name,
+          phone: data.customer.phone,
+          email: data.customer.email,
+          password: data.customer.password,
+          tc: data.customer.tc,
+          plate: data.customer.plate,
+          category: data.category?.name || 'Belirtilmedi',
+          parcel: data.parcel,
+          amount: data.package?.price ? `${data.package.price.toLocaleString('tr-TR')} ₺` : 'Belirtilmedi',
+          start_date: start.toISOString().split('T')[0],
+          end_date: end.toISOString().split('T')[0],
+          total_days: days,
+          status: 'pending'
+        }
+      ]);
+
+    if (error) {
+      alert("Rezervasyon kaydedilemedi: " + error.message);
+      return; 
+    }
+
+    localStorage.setItem('customerId', code);
+    setAuthState({ isLoggedIn: true, userType: "customer" }); 
+    nextStep(); 
+  };
+
+  const slideVariants = {
+    hiddenRight: { x: 50, opacity: 0 }, // Mobilde yatay kayma hissini yumuşattık (100 -> 50)
+    hiddenLeft: { x: -50, opacity: 0 },
+    visible: { x: 0, opacity: 1, transition: { duration: 0.4 } },
+    exit: { x: -50, opacity: 0, transition: { duration: 0.3 } },
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    <div className="flex flex-col min-h-screen bg-gray-50/50">
+      <Header 
+        isLoggedIn={authState.isLoggedIn} 
+        userType={authState.userType} 
+        onLoginSuccess={handleLoginSuccess} 
+      />
+
+      {/* MOBİL İÇİN PADDİNGLERİ KISTIK (p-4 yerine p-2 sm:p-4) */}
+      <main className="flex-1 flex items-center justify-center p-2 sm:p-4">
+        {/* MOBİLDE KÖŞE OVALLİĞİNİ BİRAZ KÜÇÜLTTÜK (rounded-[24px]) */}
+        <div className="w-full max-w-4xl bg-white rounded-[24px] sm:rounded-[32px] shadow-2xl overflow-hidden relative min-h-[550px] sm:min-h-[600px] flex flex-col" style={{ border: '4px solid var(--color-brand-sand)' }}>
+          
+          <ProgressBar step={step} />
+          
+          {/* İÇERİK ALANI MOBİL BOŞLUKLARI (p-4 sm:p-8) */}
+          <div className="p-4 sm:p-8 md:p-10 flex-1 overflow-y-auto overflow-x-hidden">
+            <AnimatePresence mode="wait">
+              {step === 1 && <Step1Category data={data} setData={setData} onNext={nextStep} slideVariants={slideVariants} />}
+              {step === 2 && <Step2Date data={data} setData={setData} onNext={nextStep} onPrev={prevStep} slideVariants={slideVariants} />}
+              {step === 3 && <Step3Map data={data} setData={setData} onNext={nextStep} onPrev={prevStep} slideVariants={slideVariants} />}
+              {step === 4 && <Step4UserInfo data={data} setData={setData} onPrev={prevStep} onComplete={handleCompleteOrder} slideVariants={slideVariants} />}
+              {step === 5 && <Step5Success data={data} reservationCode={reservationCode} slideVariants={slideVariants} />}
+            </AnimatePresence>
+          </div>
         </div>
       </main>
     </div>
