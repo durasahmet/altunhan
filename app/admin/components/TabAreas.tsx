@@ -1,22 +1,25 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard } from "lucide-react";
+import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../../lib/supabase";
 
 export default function TabAreas({ areas }: any) {
   const [areaList, setAreaList] = useState<any[]>([]);
   
-  // Veritabanından gelen veriyi state'e aktar (Tüm yeni fiyat sütunları dahil)
+  // Veritabanından gelen veriyi state'e aktar (6 Fiyat ve Kategori dahil)
   useEffect(() => {
     if (areas) {
       setAreaList(areas.map((a: any) => ({
         ...a,
         mapPos: { top: a.map_top || "50%", left: a.map_left || "50%" },
         maintenanceCount: a.maintenance_count || 0,
+        main_category: a.main_category || "Karavan Kiralama",
         price_daily: a.price_daily || 0,
+        price_3days: a.price_3days || 0,
         price_weekly: a.price_weekly || 0,
         price_monthly: a.price_monthly || 0,
+        price_6months: a.price_6months || 0,
         price_yearly: a.price_yearly || 0,
       })));
     }
@@ -28,7 +31,8 @@ export default function TabAreas({ areas }: any) {
   // Düzenleme veya Yeni Ekleme sırasındaki anlık verimiz
   const [currentArea, setCurrentArea] = useState<any>({
     id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
-    price_daily: 0, price_weekly: 0, price_monthly: 0, price_yearly: 0, 
+    main_category: "Karavan Kiralama", // Varsayılan Kategori
+    price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
     mapPos: { top: "50%", left: "50%" }
   });
 
@@ -43,7 +47,8 @@ export default function TabAreas({ areas }: any) {
     setEditMode(false);
     setCurrentArea({ 
       id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
-      price_daily: 0, price_weekly: 0, price_monthly: 0, price_yearly: 0, 
+      main_category: "Karavan Kiralama",
+      price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
       mapPos: { top: "50%", left: "50%" } 
     });
     setIsModalOpen(true);
@@ -55,28 +60,28 @@ export default function TabAreas({ areas }: any) {
     setIsModalOpen(true);
   };
 
-  // 🚀 SUPABASE'E TAM KAPSAMLI KAYDETME
+  // SUPABASE'E TAM KAPSAMLI KAYDETME
   const handleSave = async () => {
-    // Veritabanına gidecek temizlenmiş paket
     const payload = {
       name: currentArea.name,
+      main_category: currentArea.main_category,
       capacity: parseInt(currentArea.capacity) || 0,
       price_daily: parseInt(currentArea.price_daily) || 0,
+      price_3days: parseInt(currentArea.price_3days) || 0,
       price_weekly: parseInt(currentArea.price_weekly) || 0,
       price_monthly: parseInt(currentArea.price_monthly) || 0,
+      price_6months: parseInt(currentArea.price_6months) || 0,
       price_yearly: parseInt(currentArea.price_yearly) || 0,
       map_top: currentArea.mapPos.top,
       map_left: currentArea.mapPos.left
     };
 
     if (editMode) {
-      // GÜNCELLEME İŞLEMİ
       const { error } = await supabase.from('areas').update(payload).eq('id', currentArea.id);
       if (!error) {
         setAreaList(areaList.map((a: any) => a.id === currentArea.id ? { ...currentArea, ...payload } : a));
       } else alert("Hata: " + error.message);
     } else {
-      // YENİ EKLEME İŞLEMİ
       const { data, error } = await supabase.from('areas').insert([{ 
         ...payload, 
         occupied: 0, 
@@ -90,19 +95,17 @@ export default function TabAreas({ areas }: any) {
     }
     setIsModalOpen(false);
   };
+
   const handleDelete = async (id: number) => {
-  if (!window.confirm("Bu alanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
+    if (!window.confirm("Bu alanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
+    const { error } = await supabase.from('areas').delete().eq('id', id);
+    if (!error) {
+      setAreaList(areaList.filter(a => a.id !== id));
+    } else {
+      alert("Silinirken hata oluştu: " + error.message);
+    }
+  };
 
-  const { error } = await supabase.from('areas').delete().eq('id', id);
-  
-  if (!error) {
-    setAreaList(areaList.filter(a => a.id !== id));
-  } else {
-    alert("Silinirken hata oluştu: " + error.message);
-  }
-};
-
-  // 🛠️ BAKIM GÜNCELLEMESİ (Supabase Bağlantılı)
   const handleMaintenance = async (area: any) => {
     const input = window.prompt(`${area.name} için bakıma alınacak parsel sayısını girin (Bakımı bitirmek için 0 yazın):`, area.maintenanceCount || "0");
     if (input === null) return;
@@ -114,31 +117,22 @@ export default function TabAreas({ areas }: any) {
     }
 
     const newStatus = count > 0 ? 'maintenance' : 'active';
-
-    const { error } = await supabase.from('areas').update({
-      maintenance_count: count,
-      status: newStatus
-    }).eq('id', area.id);
+    const { error } = await supabase.from('areas').update({ maintenance_count: count, status: newStatus }).eq('id', area.id);
 
     if (!error) {
       setAreaList(areaList.map((a: any) => a.id === area.id ? { ...a, maintenanceCount: count, status: newStatus } : a));
-    } else {
-      alert("Bakım güncellenirken hata oluştu.");
-    }
+    } else alert("Bakım güncellenirken hata oluştu.");
   };
 
   return (
     <div className="space-y-6">
-      
-      {/* BAŞLIK VE EKLEME BUTONU */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">Tesis Alanları ve Yönetimi</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Tesis Alanları ve Fiyat Yönetimi</h2>
         <button onClick={handleAddNew} className="bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-900 shadow-lg transition-colors border border-gray-700">
-          <Plus size={18}/> Yeni Alan Ekle
+          <Plus size={18}/> Yeni Ünite Ekle
         </button>
       </div>
 
-      {/* ALANLAR LİSTESİ */}
       <div className="grid grid-cols-1 gap-4">
         {areaList.map((area: any) => {
           const activeCapacity = area.capacity - (area.maintenanceCount || 0);
@@ -148,6 +142,9 @@ export default function TabAreas({ areas }: any) {
               
               <div className="w-full lg:w-auto flex-1">
                 <div className="flex items-center gap-3 mb-2">
+                  <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                    <Tag size={10} /> {area.main_category}
+                  </span>
                   <h3 className="font-black text-xl text-gray-800">{area.name}</h3>
                   {area.maintenanceCount > 0 && (
                     <span className="bg-red-100 text-red-600 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
@@ -156,17 +153,19 @@ export default function TabAreas({ areas }: any) {
                   )}
                 </div>
                 
-                {/* Kapasite Barı */}
                 <p className="text-sm text-gray-500 mb-2">Kullanılabilir Kapasite: <span className="font-bold text-gray-800">{area.occupied} / {activeCapacity}</span> Dolu</p>
                 <div className="w-full max-w-md bg-gray-100 h-2 rounded-full overflow-hidden mb-4">
                   <div className="bg-blue-500 h-full transition-all" style={{ width: `${activeCapacity > 0 ? (area.occupied / activeCapacity) * 100 : 0}%` }}></div>
                 </div>
 
-                {/* Fiyat Özetleri */}
+                {/* Dinamik Fiyat Özetleri (Sadece 0'dan büyük olanlar listelenir) */}
                 <div className="flex flex-wrap gap-2 text-xs font-bold">
-                  <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Günlük: {area.price_daily}₺</span>
-                  <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Haftalık: {area.price_weekly}₺</span>
-                  <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Aylık: {area.price_monthly}₺</span>
+                  {area.price_daily > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Gün: {area.price_daily}₺</span>}
+                  {area.price_3days > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> 3 Gün: {area.price_3days}₺</span>}
+                  {area.price_weekly > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Hafta: {area.price_weekly}₺</span>}
+                  {area.price_monthly > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Ay: {area.price_monthly}₺</span>}
+                  {area.price_6months > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> 6 Ay: {area.price_6months}₺</span>}
+                  {area.price_yearly > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Yıl: {area.price_yearly}₺</span>}
                 </div>
               </div>
               
@@ -187,7 +186,6 @@ export default function TabAreas({ areas }: any) {
                   <X size={18}/> Sil
                 </button>
               </div>
-
             </div>
           );
         })}
@@ -197,21 +195,32 @@ export default function TabAreas({ areas }: any) {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20">
               
               <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
                 <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                  <Settings className="text-orange-500" size={24}/> {editMode ? "Alanı Düzenle" : "Yeni Alan Oluştur"}
+                  <Settings className="text-orange-500" size={24}/> {editMode ? "Üniteyi Düzenle" : "Yeni Ünite Oluştur"}
                 </h2>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><X size={24} /></button>
               </div>
 
-              <div className="p-6 space-y-8">
+              <div className="p-6 space-y-6">
                 
-                {/* 1. Temel Bilgiler */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. Kategori, Ad ve Kapasite */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Alan Adı</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ana Başlık</label>
+                    <select 
+                      className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors appearance-none bg-white"
+                      value={currentArea.main_category} 
+                      onChange={e => setCurrentArea({...currentArea, main_category: e.target.value})}
+                    >
+                      <option value="Karavan Kiralama">Karavan Kiralama</option>
+                      <option value="Alan Kiralama">Alan Kiralama</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ünite Adı (Parsel/Tip)</label>
                     <input type="text" placeholder="Örn: VIP Karavan" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.name} onChange={e => setCurrentArea({...currentArea, name: e.target.value})} />
                   </div>
                   <div>
@@ -220,26 +229,32 @@ export default function TabAreas({ areas }: any) {
                   </div>
                 </div>
 
-                {/* 2. Fiyatlandırma Tablosu */}
+                {/* 2. Dinamik Fiyatlandırma Tablosu (6 Seçenek) */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Fiyatlandırma (₺)</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-green-50/50 p-4 rounded-2xl border border-green-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-green-700 uppercase">Günlük</label>
-                      <input type="number" className="w-full p-3 rounded-xl border border-white shadow-sm font-bold text-gray-800 outline-none focus:border-green-500" value={currentArea.price_daily} onChange={e => setCurrentArea({...currentArea, price_daily: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-green-700 uppercase">Haftalık</label>
-                      <input type="number" className="w-full p-3 rounded-xl border border-white shadow-sm font-bold text-gray-800 outline-none focus:border-green-500" value={currentArea.price_weekly} onChange={e => setCurrentArea({...currentArea, price_weekly: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-green-700 uppercase">Aylık</label>
-                      <input type="number" className="w-full p-3 rounded-xl border border-white shadow-sm font-bold text-gray-800 outline-none focus:border-green-500" value={currentArea.price_monthly} onChange={e => setCurrentArea({...currentArea, price_monthly: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-green-700 uppercase">Yıllık</label>
-                      <input type="number" className="w-full p-3 rounded-xl border border-white shadow-sm font-bold text-gray-800 outline-none focus:border-green-500" value={currentArea.price_yearly} onChange={e => setCurrentArea({...currentArea, price_yearly: e.target.value})} />
-                    </div>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><CreditCard size={14}/> Fiyat Listesi (₺)</label>
+                    <span className="text-[10px] text-gray-400 font-bold">* Sunmak istemediğiniz paketleri 0 bırakın.</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 bg-green-50/50 p-4 rounded-2xl border border-green-100">
+                    {[
+                      { label: "Günlük", key: "price_daily" },
+                      { label: "3 Günlük", key: "price_3days" },
+                      { label: "Haftalık", key: "price_weekly" },
+                      { label: "Aylık", key: "price_monthly" },
+                      { label: "6 Aylık", key: "price_6months" },
+                      { label: "Yıllık", key: "price_yearly" }
+                    ].map((priceItem) => (
+                      <div key={priceItem.key} className="space-y-1">
+                        <label className="text-[10px] font-bold text-green-700 uppercase">{priceItem.label}</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          className="w-full p-3 rounded-xl border border-white shadow-sm font-bold text-gray-800 outline-none focus:border-green-500 bg-white" 
+                          value={currentArea[priceItem.key]} 
+                          onChange={e => setCurrentArea({...currentArea, [priceItem.key]: e.target.value})} 
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -249,7 +264,6 @@ export default function TabAreas({ areas }: any) {
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-gray-100 cursor-crosshair group shadow-inner" onClick={handleMapClick}>
                     <img src="/Render.jpg" alt="Harita" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                     
-                    {/* Anlık Seçim Pini */}
                     <div className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300" style={{ top: currentArea.mapPos.top, left: currentArea.mapPos.left }}>
                       <div className="relative">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
@@ -257,7 +271,6 @@ export default function TabAreas({ areas }: any) {
                       </div>
                     </div>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-2 font-bold text-center">Harita üzerinde tıklayarak pini yerleştirin.</p>
                 </div>
 
                 {/* 4. Kaydet Butonu */}

@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { ArrowRight, Tent, Truck, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Tent, Truck, CheckCircle2, Map } from "lucide-react";
 import { motion } from "framer-motion";
-import { supabase } from "../../lib/supabase"; // Supabase bağlantısı
+import { supabase } from "../../lib/supabase";
 
 export default function Step1Category({ data, setData, onNext, slideVariants }: any) {
   const [dbAreas, setDbAreas] = useState<any[]>([]);
@@ -21,26 +21,38 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
   }, []);
 
   const handleSelectCategory = (area: any) => {
-    // Veritabanındaki price_ sütunlarını Step2Date'in beklediği formata sokuyoruz
+    // 🚀 AKILLI FİYAT FİLTRESİ: Sadece fiyatı 0'dan büyük olanları pakete dahil et
+    const availablePackages = [];
+    
+    if (area.price_daily > 0) availablePackages.push({ id: "daily", name: "Günlük", price: area.price_daily, duration: "1 Gün" });
+    if (area.price_3days > 0) availablePackages.push({ id: "3days", name: "3 Günlük", price: area.price_3days, duration: "3 Gün" });
+    if (area.price_weekly > 0) availablePackages.push({ id: "weekly", name: "Haftalık", price: area.price_weekly, duration: "7 Gün" });
+    if (area.price_monthly > 0) availablePackages.push({ id: "monthly", name: "Aylık", price: area.price_monthly, duration: "30 Gün" });
+    if (area.price_6months > 0) availablePackages.push({ id: "6months", name: "6 Aylık", price: area.price_6months, duration: "180 Gün" });
+    if (area.price_yearly > 0) availablePackages.push({ id: "yearly", name: "Yıllık", price: area.price_yearly, duration: "365 Gün" });
+
     const areaWithPackages = {
       ...area,
-      packages: [
-        { id: "yearly", name: "Yıllık", price: area.price_yearly || 0, duration: "365 Gün" },
-        { id: "monthly", name: "Aylık", price: area.price_monthly || 0, duration: "30 Gün" },
-        { id: "weekly", name: "Haftalık", price: area.price_weekly || 0, duration: "7 Gün" },
-        { id: "daily", name: "Günlük", price: area.price_daily || 0, duration: "1 Gün" }
-      ]
+      packages: availablePackages
     };
 
     setData({ 
       ...data, 
       category: areaWithPackages,
-      package: null 
+      package: null // Yeni alan seçilince eski paketi sıfırla
     });
   };
 
+  // 🚀 GRUPLAMA MANTIĞI: Alanları "Ana Kategoriye" göre ayır
+  const groupedAreas = dbAreas.reduce((acc: any, area: any) => {
+    const cat = area.main_category || "Diğer";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(area);
+    return acc;
+  }, {});
+
   return (
-    <motion.div variants={slideVariants} initial="hiddenRight" animate="visible" exit="exit" className="space-y-6">
+    <motion.div variants={slideVariants} initial="hiddenRight" animate="visible" exit="exit" className="space-y-8">
       
       <div className="text-center">
         <h2 className="text-3xl font-black tracking-tight" style={{ color: 'var(--color-brand-green)' }}>Konaklama Tipi</h2>
@@ -52,38 +64,58 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {dbAreas.map((area) => {
-            const isSelected = data.category?.name === area.name;
-            // İsminde karavan geçiyorsa Karavan ikonu, geçmiyorsa Çadır ikonu kullan
-            const Icon = area.name.toLowerCase().includes("karavan") ? Truck : Tent;
+        <div className="space-y-8">
+          {/* GRUPLANMIŞ KATEGORİLERİ EKRANA BAS */}
+          {Object.keys(groupedAreas).map((mainCat) => (
+            <div key={mainCat} className="bg-gray-50/80 p-4 sm:p-6 rounded-3xl border border-gray-100">
+              <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
+                {mainCat === 'Karavan Kiralama' ? <Truck className="text-orange-500" /> : <Tent className="text-orange-500" />}
+                {mainCat}
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {groupedAreas[mainCat].map((area: any) => {
+                  const isSelected = data.category?.name === area.name;
+                  const activeCapacity = area.capacity - (area.maintenance_count || 0);
+                  const isFull = area.occupied >= activeCapacity;
 
-            return (
-              <div 
-                key={area.id}
-                onClick={() => handleSelectCategory(area)}
-                className={`relative p-6 rounded-3xl border-4 cursor-pointer transition-all duration-300 ${
-                  isSelected ? 'border-orange-500 bg-orange-50 scale-[1.02]' : 'border-gray-100 bg-white hover:border-orange-200 hover:bg-orange-50/50'
-                }`}
-              >
-                {isSelected && (
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-3 -right-3 bg-orange-500 text-white rounded-full p-1 shadow-lg">
-                    <CheckCircle2 size={24} />
-                  </motion.div>
-                )}
-                
-                <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-2xl ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                    <Icon size={32} />
-                  </div>
-                  <div>
-                    <h3 className={`font-black text-lg ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{area.name}</h3>
-                    <p className="text-sm font-bold text-gray-400 mt-1">Kapasite: {area.occupied}/{area.capacity} Dolu</p>
-                  </div>
-                </div>
+                  return (
+                    <div 
+                      key={area.id}
+                      onClick={() => !isFull && handleSelectCategory(area)}
+                      className={`relative p-5 rounded-2xl border-4 transition-all duration-300 bg-white ${
+                        isFull 
+                          ? 'opacity-60 cursor-not-allowed border-gray-100 grayscale-[50%]' 
+                          : isSelected 
+                            ? 'border-orange-500 shadow-md scale-[1.02] cursor-pointer' 
+                            : 'border-transparent shadow-sm hover:border-orange-200 hover:shadow-md cursor-pointer'
+                      }`}
+                    >
+                      {isSelected && (
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-3 -right-3 bg-orange-500 text-white rounded-full p-1 shadow-lg z-10">
+                          <CheckCircle2 size={24} />
+                        </motion.div>
+                      )}
+                      
+                      <div className="flex items-center gap-4">
+                        <div className={`p-4 rounded-xl shrink-0 ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {mainCat === 'Karavan Kiralama' ? <Truck size={28} /> : <Map size={28} />}
+                        </div>
+                        <div>
+                          <h4 className={`font-black text-lg leading-tight mb-1 ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{area.name}</h4>
+                          <p className="text-xs font-bold text-gray-400">
+                            Durum: <span className={isFull ? 'text-red-500' : 'text-green-600'}>
+                              {isFull ? 'TAMAMEN DOLU' : `${area.occupied}/${activeCapacity} Dolu`}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 

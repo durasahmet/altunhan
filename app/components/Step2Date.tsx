@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, ArrowRight, Calendar, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Step2Date({ data, setData, onNext, onPrev, slideVariants }: any) {
@@ -9,20 +9,17 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
     if (!data.startDate || !data.package) return "Hesaplanıyor...";
     
     const start = new Date(data.startDate);
-    
-    // HAYAT KURTARAN KOD: "30 Gün" metninin içindeki sadece rakamları (30) alır!
     const days = parseInt(data.package.duration.replace(/\D/g, ''), 10) || 0; 
-    
-    // Bitiş tarihini hesapla (Gün sayısını milisaniyeye çevirip ekliyoruz)
     const end = new Date(start.getTime() + (days * 24 * 60 * 60 * 1000));
     
-    // Tarihi güzel bir Türkçe formatında yazdır (Örn: 2 Mayıs 2026)
     return end.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   const handlePackageSelect = (pkg: any) => {
     setData({ ...data, package: pkg });
   };
+
+  const availablePackages = data.category?.packages || [];
 
   return (
     <motion.div variants={slideVariants} initial="hiddenRight" animate="visible" exit="exit" className="space-y-8">
@@ -44,7 +41,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
             className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 text-gray-800 font-bold bg-white shadow-sm"
             value={data.startDate}
             onChange={(e) => setData({ ...data, startDate: e.target.value })}
-            min={new Date().toISOString().split('T')[0]} // Geçmiş tarihlerin seçilmesini engeller
+            min={new Date().toISOString().split('T')[0]} 
           />
         </div>
 
@@ -53,34 +50,42 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
             <Clock className="text-orange-500" size={18} /> Konaklama Süresi
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {data.category?.packages?.map((pkg: any) => {
-              const isSelected = data.package?.id === pkg.id;
-              return (
-                <button
-                  key={pkg.id}
-                  onClick={() => handlePackageSelect(pkg)}
-                  className={`relative p-4 rounded-xl border-2 text-left transition-all ${
-                    isSelected 
-                      ? 'border-orange-500 bg-orange-50 shadow-md' 
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/50'
-                  }`}
-                >
-                  {isSelected && (
-                    <div className="absolute top-3 right-3 text-orange-500">
-                      <CheckCircle2 size={18} />
-                    </div>
-                  )}
-                  <p className={`font-black ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{pkg.name}</p>
-                  <p className="text-xs font-bold text-gray-400 mt-1">{pkg.duration}</p>
-                  <p className="text-sm font-bold text-green-600 mt-2">{pkg.price.toLocaleString('tr-TR')} ₺</p>
-                </button>
-              )
-            })}
-          </div>
+          
+          {availablePackages.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {availablePackages.map((pkg: any) => {
+                const isSelected = data.package?.id === pkg.id;
+                return (
+                  <button
+                    key={pkg.id}
+                    onClick={() => handlePackageSelect(pkg)}
+                    className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                      isSelected 
+                        ? 'border-orange-500 bg-orange-50 shadow-md' 
+                        : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/50'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-3 right-3 text-orange-500">
+                        <CheckCircle2 size={18} />
+                      </div>
+                    )}
+                    <p className={`font-black ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{pkg.name}</p>
+                    <p className="text-xs font-bold text-gray-400 mt-1">{pkg.duration}</p>
+                    <p className="text-sm font-bold text-green-600 mt-2">{pkg.price.toLocaleString('tr-TR')} ₺</p>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 flex items-center gap-3">
+              <AlertTriangle className="text-orange-500" size={24} />
+              <p className="text-sm font-bold text-orange-800">Bu alan için henüz bir fiyat paketi tanımlanmamış. Lütfen yönetici ile iletişime geçin.</p>
+            </div>
+          )}
         </div>
 
-        {/* BİTİŞ TARİHİ ÖZETİ (Sadece seçim yapıldıysa görünür) */}
+        {/* BİTİŞ TARİHİ ÖZETİ */}
         {data.startDate && data.package && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-orange-100 border border-orange-200 p-4 rounded-xl flex justify-between items-center shadow-sm">
             <div>
