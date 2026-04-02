@@ -18,36 +18,25 @@ export default function TabGate() {
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastScannedRef = useRef<string>("");
-  const jsQRRef = useRef<any>(null);         // ← state yerine ref
-  const isLoadingRef = useRef(false);        // ← sorgu kilidini ref ile tut
-  const facingModeRef = useRef(facingMode);  // ← facingMode'u ref ile takip et
+  const jsQRRef = useRef<any>(null);
+  const isLoadingRef = useRef(false);
+  const facingModeRef = useRef(facingMode);
 
-  // jsQR'ı ref'e yükle (closure sorununu önler)
   useEffect(() => {
     import("jsqr").then((mod) => {
       jsQRRef.current = mod.default;
       startCamera();
     });
-    return () => {
-      stopCamera();
-    };
+    return () => { stopCamera(); };
   }, []);
 
   const stopCamera = () => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
+    if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
   };
 
   const handleVerify = useCallback(async (code: string) => {
-    // Çift tetiklenmeyi önle
     if (!code || code === lastScannedRef.current || isLoadingRef.current) return;
-
     lastScannedRef.current = code;
     isLoadingRef.current = true;
     setIsLoading(true);
@@ -55,14 +44,8 @@ export default function TabGate() {
     setQrCode(code);
 
     const cleanCode = code.trim().toUpperCase();
-
     try {
-      const { data, error } = await supabase
-        .from("reservations")
-        .select("*")
-        .eq("id", cleanCode)
-        .single();
-
+      const { data, error } = await supabase.from("reservations").select("*").eq("id", cleanCode).single();
       if (error || !data) {
         setResult({ status: "error", message: "Geçersiz Karekod! Sistemde böyle bir üye bulunamadı." });
       } else if (data.status === "pending") {
@@ -78,16 +61,13 @@ export default function TabGate() {
       setIsLoading(false);
       isLoadingRef.current = false;
     }
-  }, []); // ← bağımlılık yok, her zaman güncel ref'leri kullanır
+  }, []);
 
-  // scanFrame hiç yeniden oluşturulmuyor — ref üzerinden erişiyor
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const jsQR = jsQRRef.current;
-
     if (!video || !canvas || !jsQR) return;
-
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -95,33 +75,23 @@ export default function TabGate() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
-        });
-        if (code?.data && !isLoadingRef.current) {
-          handleVerify(code.data);
-        }
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+        if (code?.data && !isLoadingRef.current) { handleVerify(code.data); }
       }
     }
     animFrameRef.current = requestAnimationFrame(scanFrame);
-  }, [handleVerify]); // handleVerify sabit, sorun yok
+  }, [handleVerify]);
 
   const startCamera = useCallback(async () => {
     stopCamera();
     setCameraError(null);
     setIsScanning(false);
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facingModeRef.current,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
+        video: { facingMode: facingModeRef.current, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -129,13 +99,9 @@ export default function TabGate() {
         animFrameRef.current = requestAnimationFrame(scanFrame);
       }
     } catch (err: any) {
-      if (err.name === "NotAllowedError") {
-        setCameraError("Kamera izni reddedildi. Tarayıcı ayarlarından izin verin.");
-      } else if (err.name === "NotFoundError") {
-        setCameraError("Kamera bulunamadı.");
-      } else {
-        setCameraError("Kamera başlatılamadı: " + err.message);
-      }
+      if (err.name === "NotAllowedError") setCameraError("Kamera izni reddedildi. Tarayıcı ayarlarından izin verin.");
+      else if (err.name === "NotFoundError") setCameraError("Kamera bulunamadı.");
+      else setCameraError("Kamera başlatılamadı: " + err.message);
     }
   }, [scanFrame]);
 
@@ -161,10 +127,12 @@ export default function TabGate() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-8rem)]">
-      {/* SOL: Kamera + Manuel Giriş */}
+    // ✅ DEĞİŞİKLİK 1: lg:h — sabit yükseklik sadece masaüstünde
+    <div className="flex flex-col lg:flex-row gap-8 lg:h-[calc(100vh-8rem)]">
+
       <div className="w-full lg:w-1/3 flex flex-col gap-6">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex-1 flex flex-col">
+        {/* ✅ DEĞİŞİKLİK 2: lg:flex-1 — kamera paneli mobilde tüm boşluğu yutmuyor */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 lg:flex-1 flex flex-col">
           <h2 className="text-xl font-black text-gray-800 mb-6 flex items-center gap-2">
             <Camera className="text-orange-500" /> Okuyucu Modülü
           </h2>
@@ -177,9 +145,7 @@ export default function TabGate() {
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-4 z-20">
                 <XCircle size={40} className="text-red-400 mb-3" />
                 <p className="text-white/80 text-sm font-semibold mb-4">{cameraError}</p>
-                <button onClick={startCamera} className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors">
-                  Tekrar Dene
-                </button>
+                <button onClick={startCamera} className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors">Tekrar Dene</button>
               </div>
             )}
 
@@ -231,8 +197,8 @@ export default function TabGate() {
         </div>
       </div>
 
-      {/* SAĞ: Sonuç Ekranı */}
-      <div className="w-full lg:w-2/3 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+      {/* ✅ DEĞİŞİKLİK 3: min-h-[500px] — mobilde sonuç paneli ezilmiyor */}
+      <div className="w-full lg:w-2/3 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[500px] lg:min-h-0">
         <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h2 className="text-xl font-black text-gray-800">Sorgu Sonucu</h2>
           {isLoading && <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent" />}
