@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Camera, Search, CheckCircle, XCircle, ShieldAlert, User, MapPin, Clock, SwitchCamera } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,143 +12,156 @@ export default function TabGate() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [isScanning, setIsScanning] = useState(false);
-  const [jsQR, setJsQR] = useState<any>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastScannedRef = useRef<string>("");
+  const jsQRRef = useRef<any>(null);         // ← state yerine ref
+  const isLoadingRef = useRef(false);        // ← sorgu kilidini ref ile tut
+  const facingModeRef = useRef(facingMode);  // ← facingMode'u ref ile takip et
 
-  // jsQR kütüphanesini dinamik yükle (SSR uyumlu)
+  // jsQR'ı ref'e yükle (closure sorununu önler)
   useEffect(() => {
     import("jsqr").then((mod) => {
-      setJsQR(() => mod.default);
+      jsQRRef.current = mod.default;
+      startCamera();
     });
+    return () => {
+      stopCamera();
+    };
   }, []);
 
+  const stopCamera = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  };
+
   const handleVerify = useCallback(async (code: string) => {
-    if (!code || code === lastScannedRef.current) return;
+    // Çift tetiklenmeyi önle
+    if (!code || code === lastScannedRef.current || isLoadingRef.current) return;
+
     lastScannedRef.current = code;
+    isLoadingRef.current = true;
     setIsLoading(true);
     setResult(null);
+    setQrCode(code);
 
     const cleanCode = code.trim().toUpperCase();
 
-    const { data, error } = await supabase
-      .from("reservations")
-      .select("*")
-      .eq("id", cleanCode)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("id", cleanCode)
+        .single();
 
-    if (error || !data) {
-      setResult({ status: "error", message: "Geçersiz Karekod! Sistemde böyle bir üye bulunamadı." });
-    } else if (data.status === "pending") {
-      setResult({ status: "pending", message: "Bu rezervasyon henüz admin tarafından ONAYLANMAMIŞ. Giriş yapılamaz!", user: data });
-    } else if (data.status === "approved") {
-      setResult({ status: "success", message: "Geçiş Onaylandı! Giriş yapılabilir.", user: data });
-    } else {
-      setResult({ status: "error", message: "Bu üyeliğin süresi dolmuş veya iptal edilmiş." });
+      if (error || !data) {
+        setResult({ status: "error", message: "Geçersiz Karekod! Sistemde böyle bir üye bulunamadı." });
+      } else if (data.status === "pending") {
+        setResult({ status: "pending", message: "Bu rezervasyon henüz admin tarafından ONAYLANMAMIŞ. Giriş yapılamaz!", user: data });
+      } else if (data.status === "approved") {
+        setResult({ status: "success", message: "Geçiş Onaylandı! Giriş yapılabilir.", user: data });
+      } else {
+        setResult({ status: "error", message: "Bu üyeliğin süresi dolmuş veya iptal edilmiş." });
+      }
+    } catch (e) {
+      setResult({ status: "error", message: "Sunucu bağlantı hatası. Lütfen tekrar deneyin." });
+    } finally {
+      setIsLoading(false);
+      isLoadingRef.current = false;
     }
-    setIsLoading(false);
-  }, []);
+  }, []); // ← bağımlılık yok, her zaman güncel ref'leri kullanır
 
-  // Canvas üzerinde QR tara
+  // scanFrame hiç yeniden oluşturulmuyor — ref üzerinden erişiyor
   const scanFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !jsQR) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    const jsQR = jsQRRef.current;
+
+    if (!video || !canvas || !jsQR) return;
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "dontInvert",
-      });
-      if (code?.data) {
-        setQrCode(code.data);
-        handleVerify(code.data);
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+        if (code?.data && !isLoadingRef.current) {
+          handleVerify(code.data);
+        }
       }
     }
     animFrameRef.current = requestAnimationFrame(scanFrame);
-  }, [jsQR, handleVerify]);
+  }, [handleVerify]); // handleVerify sabit, sorun yok
 
-  // Kamerayı başlat
   const startCamera = useCallback(async () => {
-    // Önceki stream'i temizle
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-    }
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-
+    stopCamera();
     setCameraError(null);
-    setIsScanning(true);
+    setIsScanning(false);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode,
+          facingMode: facingModeRef.current,
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
         audio: false,
       });
       streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute("playsinline", "true"); // iOS Safari için kritik
         await videoRef.current.play();
+        setIsScanning(true);
         animFrameRef.current = requestAnimationFrame(scanFrame);
       }
     } catch (err: any) {
-      setIsScanning(false);
       if (err.name === "NotAllowedError") {
         setCameraError("Kamera izni reddedildi. Tarayıcı ayarlarından izin verin.");
       } else if (err.name === "NotFoundError") {
-        setCameraError("Kamera bulunamadı. Cihazınızda kamera mevcut değil.");
+        setCameraError("Kamera bulunamadı.");
       } else {
         setCameraError("Kamera başlatılamadı: " + err.message);
       }
     }
-  }, [facingMode, scanFrame]);
+  }, [scanFrame]);
 
-  // jsQR yüklenince kamerayı başlat
-  useEffect(() => {
-    if (jsQR) startCamera();
-    return () => {
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [jsQR, startCamera]);
+  const toggleCamera = () => {
+    const next = facingModeRef.current === "environment" ? "user" : "environment";
+    facingModeRef.current = next;
+    setFacingMode(next);
+    startCamera();
+  };
 
   const handleReset = () => {
     setResult(null);
     setQrCode("");
     lastScannedRef.current = "";
+    isLoadingRef.current = false;
   };
 
   const handleManualScan = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    lastScannedRef.current = ""; // Manuel girişte throttle'ı sıfırla
+    lastScannedRef.current = "";
+    isLoadingRef.current = false;
     handleVerify(qrCode);
   };
 
-  const toggleCamera = () => {
-    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
-  };
-
-  // facingMode değişince kamerayı yeniden başlat
-  useEffect(() => {
-    if (jsQR && isScanning) startCamera();
-  }, [facingMode]);
-
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-8rem)]">
-
       {/* SOL: Kamera + Manuel Giriş */}
       <div className="w-full lg:w-1/3 flex flex-col gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex-1 flex flex-col">
@@ -155,50 +169,32 @@ export default function TabGate() {
             <Camera className="text-orange-500" /> Okuyucu Modülü
           </h2>
 
-          {/* Kamera Alanı */}
           <div className="relative w-full aspect-square bg-gray-900 rounded-2xl overflow-hidden border-4 border-gray-100 mb-6 shadow-2xl">
-            {/* Gizli canvas (QR analizi için) */}
             <canvas ref={canvasRef} className="hidden" />
+            <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
 
-            {/* Video akışı */}
-            <video
-              ref={videoRef}
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            />
-
-            {/* Kamera Hatası */}
             {cameraError && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-4 z-20">
                 <XCircle size={40} className="text-red-400 mb-3" />
                 <p className="text-white/80 text-sm font-semibold mb-4">{cameraError}</p>
-                <button
-                  onClick={startCamera}
-                  className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors"
-                >
+                <button onClick={startCamera} className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors">
                   Tekrar Dene
                 </button>
               </div>
             )}
 
-            {/* Yükleniyor */}
             {!cameraError && !isScanning && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-20">
                 <div className="animate-spin rounded-full h-10 w-10 border-2 border-orange-500 border-t-transparent" />
               </div>
             )}
 
-            {/* Üst katman: lazer + köşe çerçevesi */}
             {isScanning && (
               <div className="absolute inset-0 pointer-events-none z-10">
-                {/* Köşe çerçeveleri */}
                 <div className="absolute top-6 left-6 w-10 h-10 border-t-4 border-l-4 border-orange-400 rounded-tl-lg" />
                 <div className="absolute top-6 right-6 w-10 h-10 border-t-4 border-r-4 border-orange-400 rounded-tr-lg" />
                 <div className="absolute bottom-6 left-6 w-10 h-10 border-b-4 border-l-4 border-orange-400 rounded-bl-lg" />
                 <div className="absolute bottom-6 right-6 w-10 h-10 border-b-4 border-r-4 border-orange-400 rounded-br-lg" />
-
-                {/* Lazer çizgisi */}
                 <motion.div
                   animate={{ y: ["5%", "90%", "5%"] }}
                   transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
@@ -207,12 +203,7 @@ export default function TabGate() {
               </div>
             )}
 
-            {/* Kamera çevir butonu (mobil için) */}
-            <button
-              onClick={toggleCamera}
-              className="absolute top-3 right-3 z-20 bg-black/50 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-black/70 transition-colors"
-              title="Kamerayı Çevir"
-            >
+            <button onClick={toggleCamera} className="absolute top-3 right-3 z-20 bg-black/50 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-black/70 transition-colors" title="Kamerayı Çevir">
               <SwitchCamera size={18} />
             </button>
 
@@ -221,11 +212,8 @@ export default function TabGate() {
             </p>
           </div>
 
-          {/* Manuel Giriş */}
           <form onSubmit={handleManualScan} className="mt-auto">
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Manuel Giriş (veya Okuyucu)
-            </label>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Manuel Giriş (veya Okuyucu)</label>
             <div className="relative">
               <input
                 type="text"
@@ -236,11 +224,7 @@ export default function TabGate() {
               />
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             </div>
-            <button
-              type="submit"
-              disabled={!qrCode || isLoading}
-              className="w-full mt-3 py-4 bg-gray-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors disabled:opacity-50"
-            >
+            <button type="submit" disabled={!qrCode || isLoading} className="w-full mt-3 py-4 bg-gray-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors disabled:opacity-50">
               {isLoading ? "Sorgulanıyor..." : "Sorgula"}
             </button>
           </form>
@@ -251,9 +235,7 @@ export default function TabGate() {
       <div className="w-full lg:w-2/3 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h2 className="text-xl font-black text-gray-800">Sorgu Sonucu</h2>
-          {isLoading && (
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent" />
-          )}
+          {isLoading && <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent" />}
         </div>
 
         <div className="p-8 flex-1 flex items-center justify-center bg-gray-50/50">
