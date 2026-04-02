@@ -1,18 +1,16 @@
 "use client";
 import { useState } from "react";
-import { UserCircle, X, ArrowRight, Lock, User } from "lucide-react"; // User ikonunu ekledim
+import { UserCircle, X, ArrowRight, Lock, User } from "lucide-react"; 
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation"; 
 import { supabase } from "../../lib/supabase";
 
-// Dışarıdan gelecek bilgileri (props) ekledik
 export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
-  // Giriş Yapma Simülasyonu
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -34,7 +32,6 @@ export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
       .single();
 
     if (data) {
-      // Şifre doğruysa tarayıcıya ID'sini kaydet ve profile yolla
       localStorage.setItem('customerId', data.id);
       if (onLoginSuccess) onLoginSuccess("customer");
       setIsLoginOpen(false);
@@ -46,22 +43,24 @@ export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
 
   return (
     <>
-      {/* ÜST MENÜ (HEADER) */}
       <header className="w-full bg-white border-b-4 border-gray-200 py-4 px-6 sm:px-12 flex justify-between items-center shadow-sm sticky top-0 z-50">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push("/")}>
-          <h1 className="text-2xl font-black tracking-tighter" style={{ color: 'var(--color-brand-green)' }}>
-            ALTUNHAN <span style={{ color: 'var(--color-brand-orange)' }}>ENEZ</span>
-          </h1>
+        
+        {/* LOGO KISMI GÜNCELLENDİ */}
+        <div className="flex items-center cursor-pointer" onClick={() => router.push("/")}>
+          <img 
+            src="/logo.png" 
+            alt="Altunhan Enez Logo" 
+            className="h-24 w-auto object-contain transition-transform hover:scale-105" 
+          />
         </div>
         
-        {/* YENİ EKLENEN KISIM: Giriş yapıldıysa farklı, yapılmadıysa farklı buton göster */}
         {isLoggedIn ? (
           <button 
             onClick={() => router.push(userType === "admin" ? "/admin" : "/profile")}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all border-2 border-green-700 text-green-800 bg-green-50 hover:bg-green-100"
           >
             <User size={20} />
-            <span>{userType === "admin" ? "Yönetim Paneli" : "Profilim"}</span>
+            <span className="hidden sm:inline">{userType === "admin" ? "Yönetim Paneli" : "Profilim"}</span>
           </button>
         ) : (
           <button 
@@ -69,12 +68,12 @@ export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all border-2 border-gray-200 hover:border-orange-500 hover:text-orange-600 text-gray-700 bg-gray-50 hover:bg-orange-50"
           >
             <UserCircle size={20} />
-            <span>Giriş Yap</span>
+            <span className="hidden sm:inline">Giriş Yap</span>
           </button>
         )}
       </header>
 
-      {/* GİRİŞ YAP KUTUSU (MODAL) - SENİN TASARIMINLA BİREBİR AYNI */}
+      {/* GİRİŞ YAP KUTUSU (MODAL) */}
       <AnimatePresence>
         {isLoginOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
@@ -84,7 +83,6 @@ export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
             >
-              {/* Modal Başlığı */}
               <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
                 <div className="flex items-center gap-2">
                   <Lock className="text-gray-400" size={20} />
@@ -95,7 +93,6 @@ export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
                 </button>
               </div>
 
-              {/* Form Alanı */}
               <form onSubmit={handleLogin} className="p-6">
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-600 mb-2">E-Posta Adresi</label>

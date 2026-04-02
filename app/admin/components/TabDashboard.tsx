@@ -1,5 +1,5 @@
 "use client";
-import { Users, Map, AlertCircle, TrendingUp } from "lucide-react";
+import { Users, Map as MapIcon, AlertCircle, TrendingUp, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function TabDashboard({ members, areas, pendingCount }: any) {
@@ -16,7 +16,7 @@ export default function TabDashboard({ members, areas, pendingCount }: any) {
     { title: "Aktif Misafir", value: totalMembers, icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
     { title: "Doluluk Oranı", value: `%${occupancyRate}`, icon: TrendingUp, color: "text-green-600", bg: "bg-green-100" },
     { title: "Bekleyen Onay", value: pendingCount, icon: AlertCircle, color: "text-orange-600", bg: "bg-orange-100" },
-    { title: "Bakımdaki Alan", value: totalMaintenance, icon: Map, color: "text-red-600", bg: "bg-red-100" },
+    { title: "Bakımdaki Alan", value: totalMaintenance, icon: MapIcon, color: "text-red-600", bg: "bg-red-100" },
   ];
 
   return (
@@ -41,6 +41,29 @@ export default function TabDashboard({ members, areas, pendingCount }: any) {
           </motion.div>
         ))}
       </div>
+
+      {/* 🚀 TESİS HARİTASI (YENİ EKLENEN GÖRSEL BÖLÜM) */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="relative w-full h-56 md:h-80 rounded-3xl overflow-hidden shadow-sm border border-gray-100 group"
+      >
+        <img 
+          src="/Render.jpg" 
+          alt="Tesis Haritası" 
+          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+        />
+        {/* Şık bir karartma efekti ve metin */}
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-gray-900/20 to-transparent pointer-events-none" />
+        <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8 text-white pointer-events-none">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="bg-orange-500 p-1.5 rounded-lg"><MapPin size={18} /></span>
+            <span className="text-xs font-bold uppercase tracking-widest bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">Altunhan Enez</span>
+          </div>
+          <h3 className="text-2xl md:text-3xl font-black drop-shadow-lg">Tesis Genel Görünümü</h3>
+        </div>
+      </motion.div>
 
       {/* Görsel Doluluk Grafiği */}
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">

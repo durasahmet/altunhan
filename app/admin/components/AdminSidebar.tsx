@@ -9,9 +9,18 @@ export default function AdminSidebar({ activeTab, setActiveTab, pendingCount }: 
     <aside className="fixed bottom-0 left-0 w-full h-[72px] md:h-screen bg-white border-t md:border-t-0 md:border-r border-gray-200 flex flex-row md:flex-col z-50 md:sticky md:top-0 md:w-64 transition-all shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:shadow-none">
       
       {/* Masaüstü Logo Kısmı (Mobilde Gizli) */}
-      <div className="hidden md:block p-6 border-b border-gray-100 shrink-0">
-        <h1 className="text-xl font-black text-gray-800 tracking-tight">ALTUNHAN</h1>
-        <p className="text-xs text-orange-500 font-bold tracking-widest uppercase mt-1">Yönetim Paneli</p>
+      <div 
+        className="hidden md:flex flex-col items-start p-6 border-b border-gray-100 shrink-0 cursor-pointer transition-transform hover:scale-[1.02]" 
+        onClick={() => router.push("/")}
+      >
+        <img 
+          src="/logo.png" 
+          alt="Altunhan Enez Logo" 
+          className="h-24 w-auto object-contain mb-2" 
+        />
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-gray-100 px-2 py-1 rounded">
+          Yönetim Paneli
+        </p>
       </div>
       
       {/* Navigasyon Linkleri (Mobilde yatay alt bar, Masaüstünde dikey) */}

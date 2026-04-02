@@ -5,24 +5,21 @@ import TabMembers from "./components/TabMembers";
 import TabDashboard from "./components/TabDashboard";
 import TabAreas from "./components/TabAreas";
 import TabGate from "./components/TabGate";
-import { supabase } from "../../lib/supabase"; // Supabase bağlantımız
+import { supabase } from "../../lib/supabase";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("members"); 
+  const [activeTab, setActiveTab] = useState("dashboard"); // Sayfa ilk açıldığında Dashboard gelsin
   
-  // Veritabanından Gelecek Gerçek State'ler
   const [pending, setPending] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
-  const [areas, setAreas] = useState<any[]>([]); // ALANLAR İÇİN YENİ STATE EKLENDİ
+  const [areas, setAreas] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sayfa açıldığında verileri getir
   useEffect(() => {
     fetchReservations();
-    fetchAreas(); // ALANLARI DA ÇAĞIRAN FONKSİYON TETİKLENDİ
+    fetchAreas();
   }, []);
 
-  // SUPABASE'DEN REZERVASYONLARI OKUMA
   const fetchReservations = async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from('reservations').select('*');
@@ -34,11 +31,8 @@ export default function AdminDashboard() {
 
     if (data) {
       const pendingData = data.filter((r: any) => r.status === 'pending');
-      const approvedData = data.filter((r: any) => r.status === 'approved').map((r: any) => ({
-        ...r,
-        remainingDays: 30, 
-        totalDays: 30
-      }));
+      // 🚀 KRİTİK DÜZELTME: Buradaki zorunlu 30 gün dayatmasını sildik! Artık gerçek veriler gidiyor.
+      const approvedData = data.filter((r: any) => r.status === 'approved');
 
       setPending(pendingData);
       setMembers(approvedData);
@@ -46,20 +40,19 @@ export default function AdminDashboard() {
     setIsLoading(false);
   };
 
-  // SUPABASE'DEN ALANLARI OKUMA (YENİ EKLENEN FONKSİYON)
   const fetchAreas = async () => {
     const { data, error } = await supabase.from('areas').select('*').order('id');
     if (data) {
-      setAreas(data); // Veritabanındaki alanları state'e atıyoruz
+      setAreas(data);
     } else {
       console.error("Alanlar çekilemedi", error);
     }
   };
 
-  // SUPABASE'DE ONAYLAMA (UPDATE)
   const handleApprove = async (req: any) => {
     setPending(pending.filter(p => p.id !== req.id));
-    setMembers([{...req, remainingDays: 30, totalDays: 30, status: 'approved'}, ...members]);
+    // 🚀 BURADAKİ 30 GÜN DAYATMASI DA SİLİNDİ
+    setMembers([{...req, status: 'approved'}, ...members]);
 
     const { error } = await supabase
       .from('reservations')
@@ -69,7 +62,6 @@ export default function AdminDashboard() {
     if (error) alert("Onaylanırken hata oluştu: " + error.message);
   };
 
-  // SUPABASE'DE GÜNCELLEME (TELEFON, SÜRE VS.)
   const handleUpdateMember = async (updatedMember: any) => {
     setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
     
@@ -81,7 +73,6 @@ export default function AdminDashboard() {
     if (error) alert("Güncellenirken hata oluştu!");
   };
 
-  // SUPABASE'DEN SİLME (DELETE)
   const handleDeleteMember = async (memberId: string) => {
     setMembers(members.filter(m => m.id !== memberId));
     
@@ -98,31 +89,14 @@ export default function AdminDashboard() {
       <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pending.length} />
       <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto relative h-screen">
         
-        {/* Yükleniyor Göstergesi */}
         {isLoading && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
           </div>
         )}
 
-        {/* İŞTE DEĞİŞEN KISIM BURASI: Artık verileri içine yolluyoruz */}
-        {activeTab === "dashboard" && (
-          <TabDashboard 
-            members={members} 
-            areas={areas} 
-            pendingCount={pending.length} 
-          />
-        )}
-        
-        {activeTab === "members" && (
-          <TabMembers 
-            pending={pending} 
-            members={members} 
-            onApprove={handleApprove} 
-            onUpdateMember={handleUpdateMember} 
-            onDeleteMember={handleDeleteMember} 
-          />
-        )}
+        {activeTab === "dashboard" && <TabDashboard members={members} areas={areas} pendingCount={pending.length} />}
+        {activeTab === "members" && <TabMembers pending={pending} members={members} onApprove={handleApprove} onUpdateMember={handleUpdateMember} onDeleteMember={handleDeleteMember} />}
         {activeTab === "areas" && <TabAreas areas={areas} />}
         {activeTab === "gate" && <TabGate />}
       </main>

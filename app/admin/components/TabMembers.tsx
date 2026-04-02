@@ -1,22 +1,25 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Search, Check, X, User, Phone, MapPin, Calendar, CreditCard, ShieldCheck, Edit2 } from "lucide-react";
+import { AlertTriangle, Search, Check, X, User, Phone, MapPin, Calendar, CreditCard, ShieldCheck, Edit2, Clock, CalendarDays } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function TabMembers({ pending, members, onApprove, onUpdateMember, onDeleteMember }: any) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMember, setSelectedMember] = useState<any>(null);
   
-  // Telefon Düzenleme State'leri
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [tempPhone, setTempPhone] = useState("");
 
-  const openProfile = (member: any) => {
-    setSelectedMember(member);
-    setIsEditingPhone(false); // Profil açılırken düzenleme modu kapalı başlasın
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  // TELEFON KAYDET
+  const openProfile = (member: any) => {
+    setSelectedMember(member);
+    setIsEditingPhone(false);
+  };
+
   const savePhone = () => {
     const updated = { ...selectedMember, phone: tempPhone };
     setSelectedMember(updated);
@@ -24,7 +27,6 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
     setIsEditingPhone(false);
   };
 
-  // SÜREYİ UZAT
   const handleExtend = () => {
     const daysStr = window.prompt(`${selectedMember.name} kişisinin süresi kaç gün uzatılacak?`, "30");
     if (!daysStr) return;
@@ -34,7 +36,8 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
       const updated = { 
         ...selectedMember, 
         remainingDays: selectedMember.remainingDays + days,
-        totalDays: selectedMember.totalDays + days
+        totalDays: selectedMember.totalDays + days,
+        total_days: (selectedMember.total_days || 0) + days 
       };
       setSelectedMember(updated);
       onUpdateMember(updated);
@@ -42,17 +45,49 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
     }
   };
 
-  // ÜYELİĞİ İPTAL ET
   const handleCancel = () => {
     if (window.confirm(`${selectedMember.name} isimli müşterinin üyeliğini iptal edip sistemden silmek istediğinize emin misiniz?`)) {
       onDeleteMember(selectedMember.id);
-      setSelectedMember(null); // Çekmeceyi kapat
+      setSelectedMember(null);
     }
+  };
+
+  const calculateDays = (member: any) => {
+    const total = parseInt(member.total_days || member.totalDays || 0, 10);
+    let remaining = 0;
+    let isFuture = false;
+
+    if (member.end_date) {
+      const endDate = new Date(member.end_date);
+      const today = new Date();
+      endDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+
+      if (member.start_date) {
+        const startDate = new Date(member.start_date);
+        startDate.setHours(0, 0, 0, 0);
+        if (today < startDate) {
+          isFuture = true;
+        }
+      }
+
+      if (isFuture) {
+        remaining = total; 
+      } else {
+        const diffTime = endDate.getTime() - today.getTime();
+        remaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      if (remaining < 0) remaining = 0;
+    } else {
+      remaining = member.remainingDays || 0;
+    }
+
+    return { total, remaining, isFuture };
   };
 
   return (
     <div className="space-y-8">
-      {/* ONAY BEKLEYENLER TABLOSU */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-orange-50 flex items-center gap-2">
           <AlertTriangle size={20} className="text-orange-500"/>
@@ -85,7 +120,6 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
         </table>
       </div>
 
-      {/* AKTİF ÜYELER TABLOSU */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
           <h2 className="font-bold text-gray-800">Aktif Müşteriler</h2>
@@ -106,6 +140,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
               <th className="p-4">Üye ID</th>
               <th className="p-4">Ad Soyad / Tel</th>
               <th className="p-4">Parsel</th>
+              <th className="p-4">Tarihler</th>
               <th className="p-4">Kalan Süre Durumu</th>
               <th className="p-4 text-right">Aksiyon</th>
             </tr>
@@ -113,22 +148,41 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
           <tbody>
             {members
               .filter((m: any) => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
-              .map((m: any) => {
+              .map((rawMember: any) => {
+              
+              const { total, remaining, isFuture } = calculateDays(rawMember);
+              const m = { ...rawMember, totalDays: total, remainingDays: remaining, isFuture };
+
               const percentLeft = (m.totalDays > 0) ? (m.remainingDays / m.totalDays) * 100 : 0;
-              const isExpiringSoon = percentLeft <= 20;
+              const isExpiringSoon = percentLeft <= 20 && !m.isFuture;
 
               return (
                 <tr key={m.id} className={`border-b border-gray-50 ${isExpiringSoon ? "bg-red-50" : "hover:bg-gray-50"} transition-colors`}>
                   <td className="p-4 font-mono text-gray-500">{m.id}</td>
                   <td className="p-4 font-bold text-gray-800">{m.name}<br/><span className="font-normal text-xs text-gray-500">{m.phone}</span></td>
                   <td className="p-4 font-bold">{m.parcel}</td>
-                  <td className="p-4 w-1/3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className={isExpiringSoon ? "text-red-600 font-bold" : "text-gray-500"}>{m.remainingDays} gün kaldı</span>
+                  <td className="p-4">
+                    <div className="text-[11px] font-bold text-gray-800 border-b border-gray-100 pb-1 mb-1">
+                      <span className="text-gray-400 mr-1">Giriş:</span> {formatDate(m.start_date)}
+                    </div>
+                    <div className="text-[11px] font-bold text-gray-800">
+                      <span className="text-gray-400 mr-1">Çıkış:</span> {formatDate(m.end_date)}
+                    </div>
+                  </td>
+                  <td className="p-4 w-1/4">
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      {m.isFuture ? (
+                        <span className="text-blue-600 font-bold flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded">
+                          <Clock size={12}/> Henüz Başlamadı ({m.totalDays} Gün)
+                        </span>
+                      ) : (
+                        <span className={isExpiringSoon ? "text-red-600 font-bold" : "text-gray-500"}>{m.remainingDays} gün kaldı</span>
+                      )}
+                      
                       {isExpiringSoon && <span className="text-red-600 font-bold flex items-center gap-1"><AlertTriangle size={12}/> Yenileme Yaklaştı</span>}
                     </div>
                     <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                      <div className={`h-full ${isExpiringSoon ? "bg-red-500" : "bg-green-500"}`} style={{ width: `${percentLeft}%` }}></div>
+                      <div className={`h-full ${m.isFuture ? "bg-blue-400" : isExpiringSoon ? "bg-red-500" : "bg-green-500"}`} style={{ width: `${percentLeft}%` }}></div>
                     </div>
                   </td>
                   <td className="p-4 text-right">
@@ -142,11 +196,11 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                 </tr>
               );
             })}
+            {members.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-gray-400">Kayıtlı aktif müşteri bulunmuyor.</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {/* SAĞDAN AÇILAN MÜŞTERİ PROFİL ÇEKMECESİ (SLIDE-OVER) */}
       <AnimatePresence>
         {selectedMember && (
           <div className="fixed inset-0 z-[100] flex justify-end bg-black bg-opacity-40 backdrop-blur-sm">
@@ -169,17 +223,32 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
 
               <div className="p-6 overflow-y-auto flex-1 space-y-6">
                 
-                <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+                <div className={`rounded-2xl p-6 text-white shadow-md relative overflow-hidden ${selectedMember.isFuture ? 'bg-gradient-to-br from-blue-500 to-blue-700' : 'bg-gradient-to-br from-green-500 to-green-700'}`}>
                   <div className="absolute top-0 right-0 p-4 opacity-20"><ShieldCheck size={80} /></div>
-                  <p className="text-green-100 text-xs font-bold tracking-widest uppercase mb-1">Üye Numarası: {selectedMember.id}</p>
+                  <p className="text-white/80 text-xs font-bold tracking-widest uppercase mb-1">Üye Numarası: {selectedMember.id}</p>
                   <h3 className="text-2xl font-black mb-1 relative z-10">{selectedMember.name}</h3>
                   <div className="inline-flex items-center gap-1 bg-white/20 px-2 py-1 rounded text-xs font-bold backdrop-blur-sm mt-2">
-                    <Check size={14} /> Aktif Üyelik
+                    {selectedMember.isFuture ? <Clock size={14} /> : <Check size={14} />} 
+                    {selectedMember.isFuture ? "İleri Tarihli Kayıt" : "Aktif Üyelik"}
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {/* TELEFON BİLGİSİ (DÜZENLENEBİLİR) */}
+                  
+                  <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center gap-4">
+                    <div className="bg-indigo-100 p-3 rounded-lg text-indigo-600"><CalendarDays size={20} /></div>
+                    <div className="flex-1 flex justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Giriş Tarihi</p>
+                        <p className="text-sm font-black text-indigo-900">{formatDate(selectedMember.start_date)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Çıkış Tarihi</p>
+                        <p className="text-sm font-black text-indigo-900">{formatDate(selectedMember.end_date)}</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4">
                     <div className="bg-blue-100 p-3 rounded-lg text-blue-600"><Phone size={20} /></div>
                     <div className="flex-1">
@@ -224,17 +293,17 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
 
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <div className="flex items-center gap-4 mb-3">
-                      <div className="bg-purple-100 p-3 rounded-lg text-purple-600"><Calendar size={20} /></div>
+                      <div className="bg-purple-100 p-3 rounded-lg text-purple-600"><Clock size={20} /></div>
                       <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Kalan Kullanım Süresi</p>
-                        <p className={`text-lg font-black ${selectedMember.remainingDays <= (selectedMember.totalDays * 0.2) ? 'text-red-500' : 'text-gray-800'}`}>
+                        <p className="text-xs font-bold text-gray-400 uppercase">Kullanım Süresi ({selectedMember.isFuture ? "Başlamadı" : "Kalan"})</p>
+                        <p className={`text-lg font-black ${!selectedMember.isFuture && selectedMember.remainingDays <= (selectedMember.totalDays * 0.2) ? 'text-red-500' : 'text-gray-800'}`}>
                           {selectedMember.remainingDays} Gün
                         </p>
                       </div>
                     </div>
                     <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full ${selectedMember.totalDays > 0 && selectedMember.remainingDays <= (selectedMember.totalDays * 0.2) ? "bg-red-500" : "bg-green-500"}`} 
+                        className={`h-full ${selectedMember.isFuture ? "bg-blue-400" : (selectedMember.totalDays > 0 && selectedMember.remainingDays <= (selectedMember.totalDays * 0.2)) ? "bg-red-500" : "bg-green-500"}`} 
                         style={{ width: `${(selectedMember.totalDays > 0) ? (selectedMember.remainingDays / selectedMember.totalDays) * 100 : 0}%` }}
                       ></div>
                     </div>
@@ -243,7 +312,6 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                 </div>
               </div>
 
-              {/* ALT AKSİYON BUTONLARI */}
               <div className="p-6 border-t border-gray-100 bg-white grid grid-cols-2 gap-3">
                 <button onClick={handleCancel} className="py-3 rounded-xl font-bold text-sm bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
                   Üyeliği İptal Et
