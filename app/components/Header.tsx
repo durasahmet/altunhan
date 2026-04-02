@@ -48,7 +48,7 @@ export default function Header({ isLoggedIn, userType, onLoginSuccess }: any) {
         {/* LOGO KISMI GÜNCELLENDİ */}
         <div className="flex items-center cursor-pointer" onClick={() => router.push("/")}>
           <img 
-            src="/logo.png" 
+            src="/altunhan-logo.png" 
             alt="Altunhan Enez Logo" 
             className="h-24 w-auto object-contain transition-transform hover:scale-105" 
           />

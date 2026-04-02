@@ -14,7 +14,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, pendingCount }: 
         onClick={() => router.push("/")}
       >
         <img 
-          src="/logo.png" 
+          src="/altunhan-logo.png" 
           alt="Altunhan Enez Logo" 
           className="h-24 w-auto object-contain mb-2" 
         />
