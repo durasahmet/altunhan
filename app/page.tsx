@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Header from "./components/Header";
 import ProgressBar from "./components/ProgressBar";
+import Step0Landing from "./components/Step0Landing";
 import Step1Category from "./components/Step1Category";
 import Step2Date from "./components/Step2Date";
 import Step3Map from "./components/Step3Map";
@@ -13,7 +14,7 @@ import Step5Success from "./components/Step5Success";
 import { supabase } from "../lib/supabase";
 
 export default function Home() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); 
   const [reservationCode, setReservationCode] = useState("");
   
   const [authState, setAuthState] = useState<{ isLoggedIn: boolean; userType: string | null }>({
@@ -76,7 +77,7 @@ export default function Home() {
   };
 
   const slideVariants = {
-    hiddenRight: { x: 50, opacity: 0 }, // Mobilde yatay kayma hissini yumuşattık (100 -> 50)
+    hiddenRight: { x: 50, opacity: 0 },
     hiddenLeft: { x: -50, opacity: 0 },
     visible: { x: 0, opacity: 1, transition: { duration: 0.4 } },
     exit: { x: -50, opacity: 0, transition: { duration: 0.3 } },
@@ -90,24 +91,40 @@ export default function Home() {
         onLoginSuccess={handleLoginSuccess} 
       />
 
-      {/* MOBİL İÇİN PADDİNGLERİ KISTIK (p-4 yerine p-2 sm:p-4) */}
-      <main className="flex-1 flex items-center justify-center p-2 sm:p-4">
-        {/* MOBİLDE KÖŞE OVALLİĞİNİ BİRAZ KÜÇÜLTTÜK (rounded-[24px]) */}
-        <div className="w-full max-w-4xl bg-white rounded-[24px] sm:rounded-[32px] shadow-2xl overflow-hidden relative min-h-[550px] sm:min-h-[600px] flex flex-col" style={{ border: '4px solid var(--color-brand-sand)' }}>
-          
-          <ProgressBar step={step} />
-          
-          {/* İÇERİK ALANI MOBİL BOŞLUKLARI (p-4 sm:p-8) */}
-          <div className="p-4 sm:p-8 md:p-10 flex-1 overflow-y-auto overflow-x-hidden">
-            <AnimatePresence mode="wait">
-              {step === 1 && <Step1Category data={data} setData={setData} onNext={nextStep} slideVariants={slideVariants} />}
-              {step === 2 && <Step2Date data={data} setData={setData} onNext={nextStep} onPrev={prevStep} slideVariants={slideVariants} />}
-              {step === 3 && <Step3Map data={data} setData={setData} onNext={nextStep} onPrev={prevStep} slideVariants={slideVariants} />}
-              {step === 4 && <Step4UserInfo data={data} setData={setData} onPrev={prevStep} onComplete={handleCompleteOrder} slideVariants={slideVariants} />}
-              {step === 5 && <Step5Success data={data} reservationCode={reservationCode} slideVariants={slideVariants} />}
-            </AnimatePresence>
-          </div>
-        </div>
+      <main className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4">
+        
+        <AnimatePresence mode="wait">
+          {/* ADIM 0: LANDING PAGE */}
+          {step === 0 && (
+            <Step0Landing onStart={() => setStep(1)} />
+          )}
+
+          {/* ADIM 1 VE SONRASI: REZERVASYON AKIŞI */}
+          {step > 0 && (
+            <motion.div 
+              key="reservation-box"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-4xl bg-white rounded-[24px] sm:rounded-[32px] shadow-2xl overflow-hidden relative min-h-[550px] sm:min-h-[600px] flex flex-col my-4 sm:my-8" 
+              style={{ border: '4px solid var(--color-brand-sand)' }}
+            >
+              {/* Progress Bar sadece rezervasyon adımlarında görünür */}
+              <ProgressBar step={step} />
+              
+              <div className="p-4 sm:p-8 md:p-10 flex-1 overflow-y-auto overflow-x-hidden">
+                <AnimatePresence mode="wait">
+                  {step === 1 && <Step1Category data={data} setData={setData} onNext={nextStep} slideVariants={slideVariants} />}
+                  {step === 2 && <Step2Date data={data} setData={setData} onNext={nextStep} onPrev={prevStep} slideVariants={slideVariants} />}
+                  {step === 3 && <Step3Map data={data} setData={setData} onNext={nextStep} onPrev={prevStep} slideVariants={slideVariants} />}
+                  {step === 4 && <Step4UserInfo data={data} setData={setData} onPrev={prevStep} onComplete={handleCompleteOrder} slideVariants={slideVariants} />}
+                  {step === 5 && <Step5Success data={data} reservationCode={reservationCode} slideVariants={slideVariants} />}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </main>
     </div>
   );

@@ -8,8 +8,7 @@ import TabGate from "./components/TabGate";
 import { supabase } from "../../lib/supabase";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("dashboard"); // Sayfa ilk açıldığında Dashboard gelsin
-  
+  const [activeTab, setActiveTab] = useState("dashboard"); 
   const [pending, setPending] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
@@ -23,65 +22,63 @@ export default function AdminDashboard() {
   const fetchReservations = async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from('reservations').select('*');
-    
     if (error) {
       console.error("Veri çekme hatası:", error);
+      setIsLoading(false);
       return;
     }
-
     if (data) {
-      const pendingData = data.filter((r: any) => r.status === 'pending');
-      // 🚀 KRİTİK DÜZELTME: Buradaki zorunlu 30 gün dayatmasını sildik! Artık gerçek veriler gidiyor.
-      const approvedData = data.filter((r: any) => r.status === 'approved');
-
-      setPending(pendingData);
-      setMembers(approvedData);
+      setPending(data.filter((r: any) => r.status === 'pending'));
+      setMembers(data.filter((r: any) => r.status === 'approved'));
     }
     setIsLoading(false);
   };
 
   const fetchAreas = async () => {
     const { data, error } = await supabase.from('areas').select('*').order('id');
-    if (data) {
-      setAreas(data);
-    } else {
-      console.error("Alanlar çekilemedi", error);
-    }
+    if (data) setAreas(data);
   };
 
+  // 🚀 ONAYLA: Hem üyeyi onayla hem de kapasiteyi 1 artır
   const handleApprove = async (req: any) => {
     setPending(pending.filter(p => p.id !== req.id));
-    // 🚀 BURADAKİ 30 GÜN DAYATMASI DA SİLİNDİ
     setMembers([{...req, status: 'approved'}, ...members]);
 
-    const { error } = await supabase
-      .from('reservations')
-      .update({ status: 'approved' })
-      .eq('id', req.id);
+    // 1. DB Onayı
+    await supabase.from('reservations').update({ status: 'approved' }).eq('id', req.id);
 
-    if (error) alert("Onaylanırken hata oluştu: " + error.message);
+    // 2. Doluluk Senkronizasyonu
+    let areaName = req.category;
+    const targetArea = areas.find(a => a.name === areaName);
+    if (targetArea) {
+      const newOccupied = (targetArea.occupied || 0) + 1;
+      await supabase.from('areas').update({ occupied: newOccupied }).eq('id', targetArea.id);
+      setAreas(areas.map(a => a.id === targetArea.id ? { ...a, occupied: newOccupied } : a));
+    }
   };
 
   const handleUpdateMember = async (updatedMember: any) => {
     setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
-    
-    const { error } = await supabase
-      .from('reservations')
-      .update({ phone: updatedMember.phone })
-      .eq('id', updatedMember.id);
-      
-    if (error) alert("Güncellenirken hata oluştu!");
+    await supabase.from('reservations').update({ phone: updatedMember.phone }).eq('id', updatedMember.id);
   };
 
+  // 🚀 SİL: Hem üyeyi sil hem de kapasiteyi 1 azalt
   const handleDeleteMember = async (memberId: string) => {
+    const memberToDelete = members.find(m => m.id === memberId);
     setMembers(members.filter(m => m.id !== memberId));
     
-    const { error } = await supabase
-      .from('reservations')
-      .delete()
-      .eq('id', memberId);
-      
-    if (error) alert("Silinirken hata oluştu!");
+    // 1. DB'den sil
+    await supabase.from('reservations').delete().eq('id', memberId);
+
+    // 2. Doluluk Senkronizasyonu
+    if (memberToDelete) {
+      const targetArea = areas.find(a => a.name === memberToDelete.category);
+      if (targetArea) {
+        const newOccupied = Math.max(0, (targetArea.occupied || 0) - 1);
+        await supabase.from('areas').update({ occupied: newOccupied }).eq('id', targetArea.id);
+        setAreas(areas.map(a => a.id === targetArea.id ? { ...a, occupied: newOccupied } : a));
+      }
+    }
   };
 
   return (
