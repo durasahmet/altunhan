@@ -15,70 +15,107 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchReservations();
-    fetchAreas();
+    fetchData();
   }, []);
 
-  const fetchReservations = async () => {
+  // 🚀 SİHİRLİ FONKSİYON: BUGÜN İÇERİDE KİMLER VAR HESAPLAMASI
+  const calculateRealTimeOccupancy = (currentAreas: any[], currentMembers: any[]) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return currentAreas.map(area => {
+      // Bu alana ait ve ŞU AN aktif (bugün tarihi giriş-çıkış aralığında olan) müşterileri bul
+      const activeInThisArea = currentMembers.filter(m => {
+        // İsim eşleşmesi garantisi (Eski kayıtlarda JSON kalmış olabilir diye güvenlik önlemi)
+        let catName = m.category;
+        try {
+          const parsed = JSON.parse(m.category);
+          if (parsed && parsed.name) catName = parsed.name;
+        } catch(e) {}
+
+        if (catName !== area.name) return false;
+
+        // Tarih kontrolü (Müşteri bugün kampta mı?)
+        if (m.start_date && m.end_date) {
+          const start = new Date(m.start_date);
+          const end = new Date(m.end_date);
+          start.setHours(0,0,0,0);
+          end.setHours(0,0,0,0);
+          
+          return today >= start && today <= end;
+        }
+        return false;
+      });
+
+      // Alanın dolu sayısını dinamik olarak güncelle
+      return { ...area, occupied: activeInThisArea.length };
+    });
+  };
+
+  const fetchData = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('reservations').select('*');
-    if (error) {
-      console.error("Veri çekme hatası:", error);
+    
+    // Hem rezervasyonları hem alanları aynı anda çek
+    const [resResponse, areasResponse] = await Promise.all([
+      supabase.from('reservations').select('*'),
+      supabase.from('areas').select('*').order('id')
+    ]);
+
+    if (resResponse.error || areasResponse.error) {
+      console.error("Veri çekme hatası", resResponse.error || areasResponse.error);
       setIsLoading(false);
       return;
     }
-    if (data) {
-      setPending(data.filter((r: any) => r.status === 'pending'));
-      setMembers(data.filter((r: any) => r.status === 'approved'));
-    }
+
+    const allReservations = resResponse.data || [];
+    const rawAreas = areasResponse.data || [];
+
+    const pendingData = allReservations.filter((r: any) => r.status === 'pending');
+    const approvedData = allReservations.filter((r: any) => r.status === 'approved');
+
+    setPending(pendingData);
+    setMembers(approvedData);
+
+    // 🚀 Alanları state'e atarken GERÇEK ZAMANLI doluluğu hesapla ve öyle at
+    const smartAreas = calculateRealTimeOccupancy(rawAreas, approvedData);
+    setAreas(smartAreas);
+    
     setIsLoading(false);
   };
 
-  const fetchAreas = async () => {
-    const { data, error } = await supabase.from('areas').select('*').order('id');
-    if (data) setAreas(data);
-  };
-
-  // 🚀 ONAYLA: Hem üyeyi onayla hem de kapasiteyi 1 artır
+  // 🚀 ONAYLA: Arayüzü anında güncelle ve hesaplamayı baştan yap
   const handleApprove = async (req: any) => {
-    setPending(pending.filter(p => p.id !== req.id));
-    setMembers([{...req, status: 'approved'}, ...members]);
+    const newPending = pending.filter(p => p.id !== req.id);
+    const newMembers = [{...req, status: 'approved'}, ...members];
+    
+    setPending(newPending);
+    setMembers(newMembers);
+    
+    // Doluluk barlarını anında güncelle
+    setAreas(calculateRealTimeOccupancy(areas, newMembers));
 
-    // 1. DB Onayı
     await supabase.from('reservations').update({ status: 'approved' }).eq('id', req.id);
-
-    // 2. Doluluk Senkronizasyonu
-    let areaName = req.category;
-    const targetArea = areas.find(a => a.name === areaName);
-    if (targetArea) {
-      const newOccupied = (targetArea.occupied || 0) + 1;
-      await supabase.from('areas').update({ occupied: newOccupied }).eq('id', targetArea.id);
-      setAreas(areas.map(a => a.id === targetArea.id ? { ...a, occupied: newOccupied } : a));
-    }
   };
 
   const handleUpdateMember = async (updatedMember: any) => {
-    setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
+    const newMembers = members.map(m => m.id === updatedMember.id ? updatedMember : m);
+    setMembers(newMembers);
+    
+    // Belki süresi uzatıldı, doluluğu tekrar hesapla
+    setAreas(calculateRealTimeOccupancy(areas, newMembers)); 
+    
     await supabase.from('reservations').update({ phone: updatedMember.phone }).eq('id', updatedMember.id);
   };
 
-  // 🚀 SİL: Hem üyeyi sil hem de kapasiteyi 1 azalt
+  // 🚀 SİL: Arayüzü anında güncelle ve hesaplamayı baştan yap
   const handleDeleteMember = async (memberId: string) => {
-    const memberToDelete = members.find(m => m.id === memberId);
-    setMembers(members.filter(m => m.id !== memberId));
+    const newMembers = members.filter(m => m.id !== memberId);
+    setMembers(newMembers);
     
-    // 1. DB'den sil
+    // Biri silinince doluluk barlarını anında güncelle
+    setAreas(calculateRealTimeOccupancy(areas, newMembers));
+    
     await supabase.from('reservations').delete().eq('id', memberId);
-
-    // 2. Doluluk Senkronizasyonu
-    if (memberToDelete) {
-      const targetArea = areas.find(a => a.name === memberToDelete.category);
-      if (targetArea) {
-        const newOccupied = Math.max(0, (targetArea.occupied || 0) - 1);
-        await supabase.from('areas').update({ occupied: newOccupied }).eq('id', targetArea.id);
-        setAreas(areas.map(a => a.id === targetArea.id ? { ...a, occupied: newOccupied } : a));
-      }
-    }
   };
 
   return (
