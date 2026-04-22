@@ -129,7 +129,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "dashboard" && <TabDashboard members={members} areas={areas} pendingCount={pending.length} />}
+        {activeTab === "dashboard" && <TabDashboard members={members} areas={areas} pendingCount={pending.length} setActiveTab={setActiveTab} />}
         {activeTab === "members" && <TabMembers pending={pending} members={members} onApprove={handleApprove} onUpdateMember={handleUpdateMember} onDeleteMember={handleDeleteMember} />}
         {activeTab === "areas" && <TabAreas areas={areas} />}
         {activeTab === "gate" && <TabGate />}
