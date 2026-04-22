@@ -43,6 +43,12 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
     });
   };
 
+  // En düşük başlangıç fiyatını bulan yardımcı fonksiyon
+  const getStartingPrice = (area: any) => {
+    const prices = [area.price_daily, area.price_3days, area.price_weekly, area.price_monthly, area.price_6months, area.price_yearly].filter(p => p > 0);
+    return prices.length > 0 ? Math.min(...prices) : 0;
+  };
+
   // 🚀 GRUPLAMA MANTIĞI: Alanları "Ana Kategoriye" göre ayır
   const groupedAreas = dbAreas.reduce((acc: any, area: any) => {
     const cat = area.main_category || "Diğer";
@@ -77,18 +83,16 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
                 {groupedAreas[mainCat].map((area: any) => {
                   const isSelected = data.category?.name === area.name;
                   const activeCapacity = area.capacity - (area.maintenance_count || 0);
-                  const isFull = area.occupied >= activeCapacity;
+                  const startingPrice = getStartingPrice(area);
 
                   return (
                     <div 
                       key={area.id}
-                      onClick={() => !isFull && handleSelectCategory(area)}
-                      className={`relative p-5 rounded-2xl border-4 transition-all duration-300 bg-white ${
-                        isFull 
-                          ? 'opacity-60 cursor-not-allowed border-gray-100 grayscale-[50%]' 
-                          : isSelected 
-                            ? 'border-orange-500 shadow-md scale-[1.02] cursor-pointer' 
-                            : 'border-transparent shadow-sm hover:border-orange-200 hover:shadow-md cursor-pointer'
+                      onClick={() => handleSelectCategory(area)} // Doluluk kısıtlamasını sildik
+                      className={`relative p-5 rounded-2xl border-4 transition-all duration-300 bg-white cursor-pointer ${
+                        isSelected 
+                          ? 'border-orange-500 shadow-md scale-[1.02]' 
+                          : 'border-transparent shadow-sm hover:border-orange-200 hover:shadow-md'
                       }`}
                     >
                       {isSelected && (
@@ -102,12 +106,20 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
                           {mainCat === 'Karavan Kiralama' ? <Truck size={28} /> : <Map size={28} />}
                         </div>
                         <div>
-                          <h4 className={`font-black text-lg leading-tight mb-1 ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{area.name}</h4>
-                          <p className="text-xs font-bold text-gray-400">
-                            Durum: <span className={isFull ? 'text-red-500' : 'text-green-600'}>
-                              {isFull ? 'TAMAMEN DOLU' : `${area.occupied}/${activeCapacity} Dolu`}
+                          <h4 className={`font-black text-lg leading-tight mb-2 ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{area.name}</h4>
+                          
+                          {/* YENİ VİTRİN BİLGİLERİ (Kapasite ve Başlangıç Fiyatı) */}
+                          <div className="flex flex-wrap gap-2">
+                            <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md tracking-wide">
+                              KAPASİTE: {activeCapacity}
                             </span>
-                          </p>
+                            {startingPrice > 0 && (
+                              <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-2 py-1 rounded-md tracking-wide">
+                                BAŞLANGIÇ: {startingPrice.toLocaleString('tr-TR')} ₺
+                              </span>
+                            )}
+                          </div>
+
                         </div>
                       </div>
                     </div>
