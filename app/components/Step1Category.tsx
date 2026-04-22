@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { ArrowRight, Tent, Truck, CheckCircle2, Map } from "lucide-react";
+import { ArrowRight, Tent, Truck, CheckCircle2, Map, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "../../lib/supabase";
 
@@ -21,7 +21,6 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
   }, []);
 
   const handleSelectCategory = (area: any) => {
-    // 🚀 AKILLI FİYAT FİLTRESİ: Sadece fiyatı 0'dan büyük olanları pakete dahil et
     const availablePackages = [];
     
     if (area.price_daily > 0) availablePackages.push({ id: "daily", name: "Günlük", price: area.price_daily, duration: "1 Gün" });
@@ -39,23 +38,28 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
     setData({ 
       ...data, 
       category: areaWithPackages,
-      package: null // Yeni alan seçilince eski paketi sıfırla
+      package: null 
     });
   };
 
-  // En düşük başlangıç fiyatını bulan yardımcı fonksiyon
   const getStartingPrice = (area: any) => {
     const prices = [area.price_daily, area.price_3days, area.price_weekly, area.price_monthly, area.price_6months, area.price_yearly].filter(p => p > 0);
     return prices.length > 0 ? Math.min(...prices) : 0;
   };
 
-  // 🚀 GRUPLAMA MANTIĞI: Alanları "Ana Kategoriye" göre ayır
+  // Alanları Ana Kategoriye göre ayır
   const groupedAreas = dbAreas.reduce((acc: any, area: any) => {
     const cat = area.main_category || "Diğer";
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(area);
     return acc;
   }, {});
+
+  // 🚀 YENİ: Toplam Kapasiteleri Hesapla (Üstteki UI için)
+  const categoryTotals = Object.keys(groupedAreas).map(mainCat => {
+    const total = groupedAreas[mainCat].reduce((acc: number, area: any) => acc + (area.capacity - (area.maintenance_count || 0)), 0);
+    return { mainCat, total };
+  });
 
   return (
     <motion.div variants={slideVariants} initial="hiddenRight" animate="visible" exit="exit" className="space-y-8">
@@ -71,12 +75,32 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
         </div>
       ) : (
         <div className="space-y-8">
-          {/* GRUPLANMIŞ KATEGORİLERİ EKRANA BAS */}
+          
+          {/* 🚀 YENİ: TOPLAM KAPASİTE ÖZET KARTLARI */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {categoryTotals.map((cat, idx) => (
+              <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-orange-200 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl ${cat.mainCat === 'Karavan Kiralama' ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+                    {cat.mainCat === 'Karavan Kiralama' ? <Truck size={24} /> : <Tent size={24} />}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">TOPLAM {cat.mainCat}</p>
+                    <p className="text-2xl font-black text-gray-800 leading-tight">
+                      {cat.total} <span className="text-sm font-bold text-gray-400">{cat.mainCat === 'Karavan Kiralama' ? 'Ürün' : 'Parsel'}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* GRUPLANMIŞ KATEGORİLER */}
           {Object.keys(groupedAreas).map((mainCat) => (
             <div key={mainCat} className="bg-gray-50/80 p-4 sm:p-6 rounded-3xl border border-gray-100">
               <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
                 {mainCat === 'Karavan Kiralama' ? <Truck className="text-orange-500" /> : <Tent className="text-orange-500" />}
-                {mainCat}
+                {mainCat} Seçenekleri
               </h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -88,7 +112,7 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
                   return (
                     <div 
                       key={area.id}
-                      onClick={() => handleSelectCategory(area)} // Doluluk kısıtlamasını sildik
+                      onClick={() => handleSelectCategory(area)}
                       className={`relative p-5 rounded-2xl border-4 transition-all duration-300 bg-white cursor-pointer ${
                         isSelected 
                           ? 'border-orange-500 shadow-md scale-[1.02]' 
@@ -108,10 +132,10 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
                         <div>
                           <h4 className={`font-black text-lg leading-tight mb-2 ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{area.name}</h4>
                           
-                          {/* YENİ VİTRİN BİLGİLERİ (Kapasite ve Başlangıç Fiyatı) */}
+                          {/* 🚀 GÜNCEL VİTRİN BİLGİLERİ (Ürün vs Alan Kapasitesi) */}
                           <div className="flex flex-wrap gap-2">
                             <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md tracking-wide">
-                              KAPASİTE: {activeCapacity}
+                              {mainCat === 'Karavan Kiralama' ? 'ÜRÜN' : 'ALAN'} KAPASİTESİ: {activeCapacity}
                             </span>
                             {startingPrice > 0 && (
                               <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-2 py-1 rounded-md tracking-wide">
