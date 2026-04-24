@@ -1,304 +1,601 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag, Users, Info } from "lucide-react";
+import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag, Users, Info, ChevronDown, ChevronUp, Layers } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../../lib/supabase";
 
-export default function TabAreas({ areas }: any) {
-  const [areaList, setAreaList] = useState<any[]>([]);
-  
+// ─── TİPLER ───────────────────────────────────────────────────────────────────
+interface AreaVariant {
+  id?: number;
+  area_id?: number;
+  person_capacity: string;
+  capacity: number;
+  occupied: number;
+  maintenance_count: number;
+  price_daily: number;
+  price_3days: number;
+  price_weekly: number;
+  price_monthly: number;
+  price_6months: number;
+  price_yearly: number;
+}
+
+interface Area {
+  id: number;
+  name: string;
+  main_category: string;
+  map_top: string;
+  map_left: string;
+  status: string;
+  variants?: AreaVariant[];
+  isOpen?: boolean;
+}
+
+// ─── BOŞ VARİANT ŞABLONU ─────────────────────────────────────────────────────
+const emptyVariant = (): AreaVariant => ({
+  person_capacity: "2 Kişilik",
+  capacity: 0,
+  occupied: 0,
+  maintenance_count: 0,
+  price_daily: 0,
+  price_3days: 0,
+  price_weekly: 0,
+  price_monthly: 0,
+  price_6months: 0,
+  price_yearly: 0,
+});
+
+const PRICE_LABELS = [
+  { label: "Günlük", key: "price_daily" },
+  { label: "3 Günlük", key: "price_3days" },
+  { label: "Haftalık", key: "price_weekly" },
+  { label: "Aylık", key: "price_monthly" },
+  { label: "6 Aylık", key: "price_6months" },
+  { label: "Yıllık", key: "price_yearly" },
+];
+
+const CAPACITY_OPTIONS = ["Standart / Çadır", "2 Kişilik", "4 Kişilik", "6 Kişilik", "8 Kişilik"];
+
+// ─── ANA BİLEŞEN ──────────────────────────────────────────────────────────────
+export default function TabAreas({ areas }: { areas: any[] }) {
+  const [areaList, setAreaList] = useState<Area[]>([]);
+
+  // ── Supabase'den varyantları çek ──
   useEffect(() => {
-    if (areas) {
-      setAreaList(areas.map((a: any) => ({
-        ...a,
-        mapPos: { top: a.map_top || "50%", left: a.map_left || "50%" },
-        maintenanceCount: a.maintenance_count || 0,
-        main_category: a.main_category || "Karavan Kiralama",
-        person_capacity: a.person_capacity || "Standart", 
-        price_daily: a.price_daily || 0,
-        price_3days: a.price_3days || 0,
-        price_weekly: a.price_weekly || 0,
-        price_monthly: a.price_monthly || 0,
-        price_6months: a.price_6months || 0,
-        price_yearly: a.price_yearly || 0,
-      })));
-    }
+    const fetchVariants = async () => {
+      if (!areas || areas.length === 0) return;
+
+      const areaIds = areas.map((a) => a.id);
+      const { data: variants } = await supabase
+        .from("area_variants")
+        .select("*")
+        .in("area_id", areaIds);
+
+      setAreaList(
+        areas.map((a) => ({
+          ...a,
+          isOpen: false,
+          variants: variants
+            ? variants.filter((v: any) => v.area_id === a.id)
+            : [],
+        }))
+      );
+    };
+    fetchVariants();
   }, [areas]);
 
+  // ─── MODAL STATE ─────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  
-  const [currentArea, setCurrentArea] = useState<any>({
-    id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
-    main_category: "Karavan Kiralama", 
-    person_capacity: "Standart",
-    price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
-    mapPos: { top: "50%", left: "50%" }
+  const [currentArea, setCurrentArea] = useState<Partial<Area>>({
+    id: undefined,
+    name: "",
+    main_category: "Karavan Kiralama",
+    map_top: "50%",
+    map_left: "50%",
+    variants: [emptyVariant()],
   });
 
+  // ─── HARITA TIKLAMA ──────────────────────────────────────────────────────────
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setCurrentArea({ ...currentArea, mapPos: { top: `${y}%`, left: `${x}%` } });
+    setCurrentArea({ ...currentArea, map_top: `${y}%`, map_left: `${x}%` });
   };
 
+  // ─── YENI / DÜZENLE ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
     setEditMode(false);
-    setCurrentArea({ 
-      id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
+    setCurrentArea({
+      id: undefined,
+      name: "",
       main_category: "Karavan Kiralama",
-      person_capacity: "Standart",
-      price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
-      mapPos: { top: "50%", left: "50%" } 
+      map_top: "50%",
+      map_left: "50%",
+      variants: [emptyVariant()],
     });
     setIsModalOpen(true);
   };
 
-  const handleEdit = (area: any) => {
+  const handleEdit = (area: Area) => {
     setEditMode(true);
-    setCurrentArea(area);
+    setCurrentArea({
+      ...area,
+      variants:
+        area.variants && area.variants.length > 0
+          ? area.variants
+          : [emptyVariant()],
+    });
     setIsModalOpen(true);
   };
 
+  // ─── VARİANT OPERASYONLARI ───────────────────────────────────────────────────
+  const addVariant = () => {
+    setCurrentArea({
+      ...currentArea,
+      variants: [...(currentArea.variants || []), emptyVariant()],
+    });
+  };
+
+  const removeVariant = (idx: number) => {
+    const variants = [...(currentArea.variants || [])];
+    variants.splice(idx, 1);
+    setCurrentArea({ ...currentArea, variants });
+  };
+
+  const updateVariant = (idx: number, field: string, value: any) => {
+    const variants = [...(currentArea.variants || [])];
+    variants[idx] = { ...variants[idx], [field]: value };
+    setCurrentArea({ ...currentArea, variants });
+  };
+
+  // ─── KAYDET ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    const payload = {
+    const areaPayload = {
       name: currentArea.name,
       main_category: currentArea.main_category,
-      person_capacity: currentArea.person_capacity, 
-      capacity: parseInt(currentArea.capacity) || 0,
-      price_daily: parseInt(currentArea.price_daily) || 0,
-      price_3days: parseInt(currentArea.price_3days) || 0,
-      price_weekly: parseInt(currentArea.price_weekly) || 0,
-      price_monthly: parseInt(currentArea.price_monthly) || 0,
-      price_6months: parseInt(currentArea.price_6months) || 0,
-      price_yearly: parseInt(currentArea.price_yearly) || 0,
-      map_top: currentArea.mapPos.top,
-      map_left: currentArea.mapPos.left
+      map_top: currentArea.map_top,
+      map_left: currentArea.map_left,
+    };
+
+    let areaId = currentArea.id;
+
+    if (editMode && areaId) {
+      const { error } = await supabase
+        .from("areas")
+        .update(areaPayload)
+        .eq("id", areaId);
+      if (error) return alert("Alan güncellenirken hata: " + error.message);
+    } else {
+      const { data, error } = await supabase
+        .from("areas")
+        .insert([{ ...areaPayload, status: "active" }])
+        .select();
+      if (error || !data) return alert("Alan eklenirken hata: " + error?.message);
+      areaId = data[0].id;
+    }
+
+    // Mevcut varyantları sil, yeniden ekle (upsert alternatifi)
+    if (editMode && areaId) {
+      await supabase.from("area_variants").delete().eq("area_id", areaId);
+    }
+
+    const variantPayloads = (currentArea.variants || []).map((v) => ({
+      area_id: areaId,
+      person_capacity: v.person_capacity,
+      capacity: parseInt(String(v.capacity)) || 0,
+      occupied: v.occupied || 0,
+      maintenance_count: v.maintenance_count || 0,
+      price_daily: parseInt(String(v.price_daily)) || 0,
+      price_3days: parseInt(String(v.price_3days)) || 0,
+      price_weekly: parseInt(String(v.price_weekly)) || 0,
+      price_monthly: parseInt(String(v.price_monthly)) || 0,
+      price_6months: parseInt(String(v.price_6months)) || 0,
+      price_yearly: parseInt(String(v.price_yearly)) || 0,
+    }));
+
+    const { data: newVariants, error: vError } = await supabase
+      .from("area_variants")
+      .insert(variantPayloads)
+      .select();
+
+    if (vError) return alert("Varyantlar kaydedilirken hata: " + vError.message);
+
+    const updatedArea: Area = {
+      ...(currentArea as Area),
+      id: areaId!,
+      variants: newVariants || [],
+      isOpen: false,
     };
 
     if (editMode) {
-      const { error } = await supabase.from('areas').update(payload).eq('id', currentArea.id);
-      if (!error) {
-        setAreaList(areaList.map((a: any) => a.id === currentArea.id ? { ...currentArea, ...payload } : a));
-      } else alert("Hata: " + error.message);
+      setAreaList(areaList.map((a) => (a.id === areaId ? updatedArea : a)));
     } else {
-      const { data, error } = await supabase.from('areas').insert([{ 
-        ...payload, 
-        occupied: 0, 
-        maintenance_count: 0, 
-        status: 'active' 
-      }]).select();
-
-      if (data && !error) {
-        setAreaList([...areaList, { ...data[0], mapPos: currentArea.mapPos, maintenanceCount: 0 }]);
-      } else alert("Hata: " + error.message);
+      setAreaList([...areaList, updatedArea]);
     }
+
     setIsModalOpen(false);
   };
 
+  // ─── SİL ─────────────────────────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Bu alanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
-    const { error } = await supabase.from('areas').delete().eq('id', id);
-    if (!error) {
-      setAreaList(areaList.filter(a => a.id !== id));
-    } else {
-      alert("Silinirken hata oluştu: " + error.message);
-    }
+    if (!window.confirm("Bu alanı ve tüm alt kategorilerini silmek istiyor musunuz?")) return;
+    await supabase.from("area_variants").delete().eq("area_id", id);
+    const { error } = await supabase.from("areas").delete().eq("id", id);
+    if (!error) setAreaList(areaList.filter((a) => a.id !== id));
+    else alert("Silinirken hata: " + error.message);
   };
 
-  const handleMaintenance = async (area: any) => {
-    const input = window.prompt(`${area.name} için bakıma alınacak parsel sayısını girin (Bakımı bitirmek için 0 yazın):`, area.maintenanceCount || "0");
+  // ─── BAKIM ───────────────────────────────────────────────────────────────────
+  const handleMaintenance = async (variant: AreaVariant) => {
+    const input = window.prompt(
+      `${variant.person_capacity} için bakımdaki parsel sayısını girin (0 = aktif):`,
+      String(variant.maintenance_count || 0)
+    );
     if (input === null) return;
-    
     const count = parseInt(input, 10);
-    if (isNaN(count) || count < 0 || count > area.capacity) {
-      alert("Lütfen geçerli bir sayı giriniz. Kapasiteyi aşamazsınız.");
+    if (isNaN(count) || count < 0 || count > variant.capacity) {
+      alert("Geçerli bir sayı girin. Kapasiteyi aşamazsınız.");
       return;
     }
-
-    const newStatus = count > 0 ? 'maintenance' : 'active';
-    const { error } = await supabase.from('areas').update({ maintenance_count: count, status: newStatus }).eq('id', area.id);
+    const { error } = await supabase
+      .from("area_variants")
+      .update({ maintenance_count: count })
+      .eq("id", variant.id);
 
     if (!error) {
-      setAreaList(areaList.map((a: any) => a.id === area.id ? { ...a, maintenanceCount: count, status: newStatus } : a));
-    } else alert("Bakım güncellenirken hata oluştu.");
+      setAreaList(
+        areaList.map((a) => ({
+          ...a,
+          variants: a.variants?.map((v) =>
+            v.id === variant.id ? { ...v, maintenance_count: count } : v
+          ),
+        }))
+      );
+    } else alert("Bakım güncellenirken hata: " + error.message);
   };
 
+  // ─── RENDER ───────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Başlık */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">Tesis Alanları ve Fiyat Yönetimi</h2>
-        <button onClick={handleAddNew} className="bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-900 shadow-lg transition-colors border border-gray-700">
-          <Plus size={18}/> Yeni Ünite Ekle
+        <h2 className="text-2xl font-bold text-gray-800">
+          Tesis Alanları ve Fiyat Yönetimi
+        </h2>
+        <button
+          onClick={handleAddNew}
+          className="bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-900 shadow-lg transition-colors border border-gray-700"
+        >
+          <Plus size={18} /> Yeni Alan Ekle
         </button>
       </div>
 
+      {/* Alan Listesi */}
       <div className="grid grid-cols-1 gap-4">
-        {areaList.map((area: any) => {
-          const activeCapacity = area.capacity - (area.maintenanceCount || 0);
-
-          return (
-            <div key={area.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 transition-all hover:border-orange-200">
-              
-              <div className="w-full lg:w-auto flex-1">
-                <div className="flex flex-wrap items-center gap-3 mb-2">
-                  <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                    <Tag size={10} /> {area.main_category}
-                  </span>
-                  {area.person_capacity && area.person_capacity !== "Standart" && (
-                    <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                      <Users size={10} /> {area.person_capacity}
+        {areaList.map((area) => (
+          <div
+            key={area.id}
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:border-orange-200"
+          >
+            {/* Alan Başlığı */}
+            <div className="p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() =>
+                    setAreaList(
+                      areaList.map((a) =>
+                        a.id === area.id ? { ...a, isOpen: !a.isOpen } : a
+                      )
+                    )
+                  }
+                  className="p-2 rounded-xl bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors"
+                >
+                  {area.isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                      <Tag size={10} /> {area.main_category}
                     </span>
-                  )}
-                  <h3 className="font-black text-xl text-gray-800">{area.name}</h3>
-                  {area.maintenanceCount > 0 && (
-                    <span className="bg-red-100 text-red-600 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
-                      <Wrench size={12}/> {area.maintenanceCount} Parsel Bakımda
-                    </span>
-                  )}
-                </div>
-                
-                <p className="text-sm text-gray-500 mb-2">Kullanılabilir Kapasite: <span className="font-bold text-gray-800">{area.occupied} / {activeCapacity}</span> Dolu</p>
-                <div className="w-full max-w-md bg-gray-100 h-2 rounded-full overflow-hidden mb-4">
-                  <div className="bg-blue-500 h-full transition-all" style={{ width: `${activeCapacity > 0 ? (area.occupied / activeCapacity) * 100 : 0}%` }}></div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 text-xs font-bold">
-                  {area.price_daily > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Gün: {area.price_daily}₺</span>}
-                  {area.price_3days > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> 3 Gün: {area.price_3days}₺</span>}
-                  {area.price_weekly > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Hafta: {area.price_weekly}₺</span>}
-                  {area.price_monthly > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Ay: {area.price_monthly}₺</span>}
-                  {area.price_6months > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> 6 Ay: {area.price_6months}₺</span>}
-                  {area.price_yearly > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Yıl: {area.price_yearly}₺</span>}
+                    <h3 className="font-black text-xl text-gray-800">{area.name}</h3>
+                  </div>
+                  <p className="text-sm text-gray-400 flex items-center gap-1">
+                    <Layers size={12} />
+                    {area.variants?.length || 0} kapasite kategorisi
+                  </p>
                 </div>
               </div>
-              
-              <div className="flex gap-2 w-full lg:w-auto">
-                <button onClick={() => handleEdit(area)} className="flex-1 lg:flex-none px-4 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors">
-                  <Settings size={18}/> Düzenle
-                </button>
-                <button 
-                  onClick={() => handleMaintenance(area)}
-                  className={`flex-1 lg:flex-none px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm ${area.maintenanceCount > 0 ? 'bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100'}`}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(area)}
+                  className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors"
                 >
-                  <Wrench size={18}/> {area.maintenanceCount > 0 ? 'Bakımı Güncelle' : 'Bakıma Al'}
+                  <Settings size={16} /> Düzenle
                 </button>
-                <button 
+                <button
                   onClick={() => handleDelete(area.id)}
-                  className="flex-1 lg:flex-none px-4 py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition-colors border border-red-100"
+                  className="px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-100"
                 >
-                  <X size={18}/> Sil
+                  <X size={16} /> Sil
                 </button>
               </div>
             </div>
-          );
-        })}
+
+            {/* Varyantlar (Accordion) */}
+            <AnimatePresence>
+              {area.isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="overflow-hidden"
+                >
+                  <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-3">
+                    {area.variants && area.variants.length > 0 ? (
+                      area.variants.map((v) => {
+                        const active = v.capacity - (v.maintenance_count || 0);
+                        const fill = active > 0 ? (v.occupied / active) * 100 : 0;
+                        return (
+                          <div
+                            key={v.id}
+                            className="bg-white p-4 rounded-xl border border-gray-100 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between"
+                          >
+                            <div className="flex-1 w-full">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                                  <Users size={10} /> {v.person_capacity}
+                                </span>
+                                {v.maintenance_count > 0 && (
+                                  <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                    <Wrench size={11} /> {v.maintenance_count} Bakımda
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500 mb-1">
+                                Kapasite:{" "}
+                                <span className="font-bold text-gray-800">
+                                  {v.occupied} / {active}
+                                </span>{" "}
+                                dolu (toplam: {v.capacity})
+                              </p>
+                              <div className="w-full max-w-xs bg-gray-100 h-1.5 rounded-full overflow-hidden mb-3">
+                                <div
+                                  className="bg-blue-500 h-full transition-all"
+                                  style={{ width: `${fill}%` }}
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                                {PRICE_LABELS.map(
+                                  ({ label, key }) =>
+                                    (v as any)[key] > 0 && (
+                                      <span
+                                        key={key}
+                                        className="bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100 flex items-center gap-1"
+                                      >
+                                        <CreditCard size={10} /> {label}:{" "}
+                                        {(v as any)[key]}₺
+                                      </span>
+                                    )
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleMaintenance(v)}
+                              className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
+                                v.maintenance_count > 0
+                                  ? "bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100"
+                                  : "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
+                              }`}
+                            >
+                              <Wrench size={15} />
+                              {v.maintenance_count > 0 ? "Bakımı Güncelle" : "Bakıma Al"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-center text-gray-400 text-sm py-4">
+                        Henüz kategori eklenmedi. Düzenle butonuna tıklayın.
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
       </div>
 
+      {/* ─── MODAL ─────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20">
-              
+          <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-5xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20"
+            >
+              {/* Modal Başlık */}
               <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
                 <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                  <Settings className="text-orange-500" size={24}/> {editMode ? "Üniteyi Düzenle" : "Yeni Ünite Oluştur"}
+                  <Settings className="text-orange-500" size={24} />
+                  {editMode ? "Alanı Düzenle" : "Yeni Alan Oluştur"}
                 </h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><X size={24} /></button>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
               </div>
 
               <div className="p-6 space-y-6">
-                
-                {/* 🚀 BİLGİ MESAJI EKLENDİ */}
+                {/* Bilgi */}
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 text-sm text-blue-800 font-medium">
                   <Info className="text-blue-500 shrink-0" size={20} />
-                  <p>Farklı kişi kapasiteleri (Örn: 2 Kişilik ve 4 Kişilik) için farklı fiyatlar belirlemek istiyorsanız, her kapasiteyi ayrı bir ünite olarak eklemelisiniz. Böylece her birinin stoğunu (adet) ayrı ayrı takip edebilirsiniz.</p>
+                  <p>
+                    Her alan altına istediğiniz kadar kapasite kategorisi (2 kişilik, 4 kişilik vb.)
+                    ekleyebilirsiniz. Her kategorinin ayrı stoku ve fiyatı olur. Rezervasyon
+                    sayfasında kişi sayısı seçildiğinde yalnızca uygun kategoriler gösterilir.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                {/* Alan Bilgileri */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ana Başlık</label>
-                    <select 
-                      className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors appearance-none bg-white"
-                      value={currentArea.main_category} 
-                      onChange={e => setCurrentArea({...currentArea, main_category: e.target.value})}
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                      Ana Başlık
+                    </label>
+                    <select
+                      className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 appearance-none bg-white"
+                      value={currentArea.main_category}
+                      onChange={(e) =>
+                        setCurrentArea({ ...currentArea, main_category: e.target.value })
+                      }
                     >
-                      <option value="Karavan Kiralama">Karavan Kiralama</option>
-                      <option value="Alan Kiralama">Alan Kiralama</option>
+                      <option>Karavan Kiralama</option>
+                      <option>Alan Kiralama</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ünite Adı</label>
-                    <input type="text" placeholder="Örn: Maxi Karavan" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.name} onChange={e => setCurrentArea({...currentArea, name: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Users size={12}/> Kişi Sayısı</label>
-                    <select 
-                      className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors appearance-none bg-white"
-                      value={currentArea.person_capacity} 
-                      onChange={e => setCurrentArea({...currentArea, person_capacity: e.target.value})}
-                    >
-                      <option value="Standart">Standart / Çadır</option>
-                      <option value="2 Kişilik">2 Kişilik</option>
-                      <option value="4 Kişilik">4 Kişilik</option>
-                      <option value="6 Kişilik">6 Kişilik</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Stok (Adet)</label>
-                    <input type="number" placeholder="Örn: 50" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.capacity} onChange={e => setCurrentArea({...currentArea, capacity: e.target.value})} />
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                      Alan Adı
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Örn: Göl Kenarı Karavan"
+                      className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800"
+                      value={currentArea.name}
+                      onChange={(e) =>
+                        setCurrentArea({ ...currentArea, name: e.target.value })
+                      }
+                    />
                   </div>
                 </div>
 
-                {/* Dinamik Fiyatlandırma Tablosu */}
+                {/* ─── KAPASİTE KATEGORİLERİ ─────────────────────────────────── */}
                 <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><CreditCard size={14}/> Fiyat Listesi (₺)</label>
-                    <span className="text-[10px] text-gray-400 font-bold">* Sunmak istemediğiniz paketleri 0 bırakın.</span>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <Users size={14} /> Kapasite Kategorileri
+                    </label>
+                    <button
+                      onClick={addVariant}
+                      className="text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-orange-200"
+                    >
+                      <Plus size={14} /> Kategori Ekle
+                    </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 bg-green-50/50 p-4 rounded-2xl border border-green-100">
-                    {[
-                      { label: "Günlük", key: "price_daily" },
-                      { label: "3 Günlük", key: "price_3days" },
-                      { label: "Haftalık", key: "price_weekly" },
-                      { label: "Aylık", key: "price_monthly" },
-                      { label: "6 Aylık", key: "price_6months" },
-                      { label: "Yıllık", key: "price_yearly" }
-                    ].map((priceItem) => (
-                      <div key={priceItem.key} className="space-y-1">
-                        <label className="text-[10px] font-bold text-green-700 uppercase">{priceItem.label}</label>
-                        <input 
-                          type="number" 
-                          min="0"
-                          className="w-full p-3 rounded-xl border border-white shadow-sm font-bold text-gray-800 outline-none focus:border-green-500 bg-white" 
-                          value={currentArea[priceItem.key]} 
-                          onChange={e => setCurrentArea({...currentArea, [priceItem.key]: e.target.value})} 
-                        />
+
+                  <div className="space-y-4">
+                    {(currentArea.variants || []).map((v, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-4"
+                      >
+                        {/* Kategori Başlık Satırı */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-xs font-black text-gray-500 uppercase">
+                            Kategori {idx + 1}
+                          </span>
+                          <select
+                            className="p-2.5 rounded-xl border border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 text-sm bg-white flex-1 min-w-[140px]"
+                            value={v.person_capacity}
+                            onChange={(e) =>
+                              updateVariant(idx, "person_capacity", e.target.value)
+                            }
+                          >
+                            {CAPACITY_OPTIONS.map((o) => (
+                              <option key={o}>{o}</option>
+                            ))}
+                          </select>
+                          <div className="flex items-center gap-2 flex-1 min-w-[120px]">
+                            <label className="text-xs font-bold text-gray-400 whitespace-nowrap">
+                              Stok (Adet):
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              className="w-full p-2.5 rounded-xl border border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 text-sm bg-white"
+                              value={v.capacity}
+                              onChange={(e) =>
+                                updateVariant(idx, "capacity", e.target.value)
+                              }
+                            />
+                          </div>
+                          {(currentArea.variants || []).length > 1 && (
+                            <button
+                              onClick={() => removeVariant(idx)}
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <X size={18} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Fiyat Tablosu */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 bg-green-50/60 p-3 rounded-xl border border-green-100">
+                          {PRICE_LABELS.map(({ label, key }) => (
+                            <div key={key} className="space-y-1">
+                              <label className="text-[10px] font-bold text-green-700 uppercase">
+                                {label}
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                className="w-full p-2 rounded-lg border border-white shadow-sm font-bold text-gray-800 text-sm outline-none focus:border-green-500 bg-white"
+                                value={(v as any)[key]}
+                                onChange={(e) =>
+                                  updateVariant(idx, key, e.target.value)
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* İnteraktif Harita */}
+                {/* Harita */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><MapPin size={16}/> Harita Konumu</label>
-                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-gray-100 cursor-crosshair group shadow-inner" onClick={handleMapClick}>
-                    <img src="/Render.jpg" alt="Harita" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                    
-                    <div className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300" style={{ top: currentArea.mapPos.top, left: currentArea.mapPos.left }}>
-                      <div className="relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                        <MapPin size={48} className="drop-shadow-2xl text-orange-500 relative z-10" style={{ fill: '#fff' }} />
-                      </div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <MapPin size={16} /> Harita Konumu
+                  </label>
+                  <div
+                    className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-gray-100 cursor-crosshair group shadow-inner"
+                    onClick={handleMapClick}
+                  >
+                    <img
+                      src="/Render.jpg"
+                      alt="Harita"
+                      className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                    />
+                    <div
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                      style={{ top: currentArea.map_top, left: currentArea.map_left }}
+                    >
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                      <MapPin
+                        size={48}
+                        className="drop-shadow-2xl text-orange-500 relative z-10"
+                        style={{ fill: "#fff" }}
+                      />
                     </div>
                   </div>
                 </div>
 
-                <button onClick={handleSave} className="w-full py-4 bg-green-500 text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-green-500/30">
+                <button
+                  onClick={handleSave}
+                  className="w-full py-4 bg-green-500 text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-green-500/30"
+                >
                   <Save size={24} /> Tüm Değişiklikleri Kaydet
                 </button>
-
               </div>
             </motion.div>
           </div>
