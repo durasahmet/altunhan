@@ -1,72 +1,127 @@
 "use client";
 import { useState, useEffect } from "react";
-import { ArrowRight, Tent, Truck, CheckCircle2, Map, Info } from "lucide-react";
+import { ArrowRight, Tent, Truck, CheckCircle2, Map, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "../../lib/supabase";
 
 export default function Step1Category({ data, setData, onNext, slideVariants }: any) {
-  const [dbAreas, setDbAreas] = useState<any[]>([]);
+  const [dbVariants, setDbVariants] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 🚀 KİŞİ SAYISI FİLTRESİ İÇİN STATE
+  const [guestCount, setGuestCount] = useState<number>(2);
 
-  // Sayfa açıldığında Admin panelindeki "Aktif" alanları getir
   useEffect(() => {
-    const fetchAreas = async () => {
-      const { data: areasData } = await supabase.from('areas').select('*').eq('status', 'active').order('id');
-      if (areasData) {
-        setDbAreas(areasData);
+    const fetchVariants = async () => {
+      const { data: variantsData, error } = await supabase.from('available_variants').select('*');
+      if (variantsData) {
+        setDbVariants(variantsData);
+      } else {
+        console.error("Veritabanı hatası:", error);
       }
       setIsLoading(false);
     };
-    fetchAreas();
+    fetchVariants();
   }, []);
 
-  const handleSelectCategory = (area: any) => {
-    const availablePackages = [];
-    
-    if (area.price_daily > 0) availablePackages.push({ id: "daily", name: "Günlük", price: area.price_daily, duration: "1 Gün" });
-    if (area.price_3days > 0) availablePackages.push({ id: "3days", name: "3 Günlük", price: area.price_3days, duration: "3 Gün" });
-    if (area.price_weekly > 0) availablePackages.push({ id: "weekly", name: "Haftalık", price: area.price_weekly, duration: "7 Gün" });
-    if (area.price_monthly > 0) availablePackages.push({ id: "monthly", name: "Aylık", price: area.price_monthly, duration: "30 Gün" });
-    if (area.price_6months > 0) availablePackages.push({ id: "6months", name: "6 Aylık", price: area.price_6months, duration: "180 Gün" });
-    if (area.price_yearly > 0) availablePackages.push({ id: "yearly", name: "Yıllık", price: area.price_yearly, duration: "365 Gün" });
-
-    const areaWithPackages = {
-      ...area,
-      packages: availablePackages
-    };
-
+  const handleSelectCategory = (areaGroup: any) => {
     setData({ 
       ...data, 
-      category: areaWithPackages,
+      categoryGroup: areaGroup.name,
+      allOptions: areaGroup.allVariations, 
+      category: areaGroup.allVariations[0], // Step 2 dinamik olarak asıl uygun olanı seçecek
       package: null 
     });
   };
 
-  const getStartingPrice = (area: any) => {
-    const prices = [area.price_daily, area.price_3days, area.price_weekly, area.price_monthly, area.price_6months, area.price_yearly].filter(p => p > 0);
-    return prices.length > 0 ? Math.min(...prices) : 0;
+  const getStartingPrice = (variations: any[]) => {
+    const allPrices: number[] = [];
+    variations.forEach(v => {
+      const prices = [v.price_daily, v.price_3days, v.price_weekly, v.price_monthly, v.price_6months, v.price_yearly].filter(p => p > 0);
+      allPrices.push(...prices);
+    });
+    return allPrices.length > 0 ? Math.min(...allPrices) : 0;
   };
 
-  // Alanları Ana Kategoriye göre ayır
-  const groupedAreas = dbAreas.reduce((acc: any, area: any) => {
-    const cat = area.main_category || "Diğer";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(area);
-    return acc;
-  }, {});
+  const getCapacityFromColumn = (personCapStr: string) => {
+    if (!personCapStr || personCapStr.includes("Standart")) return 99; 
+    const match = personCapStr.match(/(\d+)/); 
+    return match ? parseInt(match[1]) : 99; 
+  };
 
-  // 🚀 YENİ: Toplam Kapasiteleri Hesapla (Üstteki UI için)
-  const categoryTotals = Object.keys(groupedAreas).map(mainCat => {
-    const total = groupedAreas[mainCat].reduce((acc: number, area: any) => acc + (area.capacity - (area.maintenance_count || 0)), 0);
-    return { mainCat, total };
+  // 1. Seçilen kişi sayısına yetmeyen kapasiteleri gizle
+  const filteredVariants = dbVariants.filter(v => {
+    const itemCapacity = getCapacityFromColumn(v.person_capacity);
+    return itemCapacity >= guestCount; 
   });
+
+  // 🚀 TYPESCRIPT FIX: Record<string, any> eklendi
+  const groupedByName = filteredVariants.reduce((acc: Record<string, any>, variant: any) => {
+    const name = variant.area_name;
+    if (!acc[name]) {
+      acc[name] = {
+        id: variant.area_id,
+        name: name,
+        main_category: variant.main_category,
+        allVariations: []
+      };
+    }
+    acc[name].allVariations.push(variant);
+    return acc;
+  }, {} as Record<string, any>);
+
+  const uniqueAreas = Object.values(groupedByName);
+
+  // 🚀 TYPESCRIPT FIX: Record<string, any> eklendi
+  const finalGroups = uniqueAreas.reduce((acc: Record<string, any>, areaGroup: any) => {
+    const cat = areaGroup.main_category || "Diğer";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(areaGroup);
+    return acc;
+  }, {} as Record<string, any>);
+
+  // 🚀 TYPESCRIPT FIX: Record<string, number> eklendi
+  const totalGroups = dbVariants.reduce((acc: Record<string, number>, v: any) => {
+    const cat = v.main_category || "Diğer";
+    if (!acc[cat]) acc[cat] = 0;
+    acc[cat] += (v.capacity - (v.maintenance_count || 0));
+    return acc;
+  }, {} as Record<string, number>);
+
+  const categoryTotals = Object.keys(totalGroups).map(mainCat => ({
+    mainCat,
+    total: totalGroups[mainCat]
+  }));
 
   return (
     <motion.div variants={slideVariants} initial="hiddenRight" animate="visible" exit="exit" className="space-y-8">
       
       <div className="text-center">
         <h2 className="text-3xl font-black tracking-tight" style={{ color: 'var(--color-brand-green)' }}>Konaklama Tipi</h2>
-        <p className="text-gray-500 font-medium mt-2">Sistemde kayıtlı olan güncel alanlarımızdan seçim yapın.</p>
+        <p className="text-gray-500 font-medium mt-2">Kişi sayısını seçin, size en uygun alanları listeleyelim.</p>
+      </div>
+
+      {/* KİŞİ SAYISI SEÇİCİ (FİLTRE) */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-center gap-4 justify-center">
+        <div className="flex items-center gap-2 text-gray-500 font-bold">
+          <Users size={20} className="text-orange-500" />
+          <span>Kaç Kişi Konaklayacaksınız?</span>
+        </div>
+        <div className="flex bg-gray-100 p-1 rounded-xl">
+          {[1, 2, 3, 4, 5, 6].map(num => (
+            <button
+              key={num}
+              onClick={() => setGuestCount(num)}
+              className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-lg font-black text-sm transition-all ${
+                guestCount === num 
+                  ? 'bg-orange-500 text-white shadow-md' 
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {num}{num === 6 ? '+' : ''}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -76,7 +131,7 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
       ) : (
         <div className="space-y-8">
           
-          {/* 🚀 YENİ: TOPLAM KAPASİTE ÖZET KARTLARI */}
+          {/* TOPLAM KAPASİTE ÖZET KARTLARI */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {categoryTotals.map((cat, idx) => (
               <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-orange-200 transition-colors">
@@ -95,8 +150,15 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
             ))}
           </div>
 
+          {Object.keys(finalGroups).length === 0 && (
+            <div className="bg-orange-50 p-6 rounded-2xl text-center border border-orange-100">
+              <p className="font-bold text-orange-800">Seçtiğiniz kişi sayısına uygun bir ünite bulunamadı.</p>
+              <p className="text-sm text-orange-600 mt-1">Lütfen kişi sayısını azaltarak tekrar deneyin.</p>
+            </div>
+          )}
+
           {/* GRUPLANMIŞ KATEGORİLER */}
-          {Object.keys(groupedAreas).map((mainCat) => (
+          {Object.keys(finalGroups).map((mainCat) => (
             <div key={mainCat} className="bg-gray-50/80 p-4 sm:p-6 rounded-3xl border border-gray-100">
               <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
                 {mainCat === 'Karavan Kiralama' ? <Truck className="text-orange-500" /> : <Tent className="text-orange-500" />}
@@ -104,15 +166,16 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
               </h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {groupedAreas[mainCat].map((area: any) => {
-                  const isSelected = data.category?.name === area.name;
-                  const activeCapacity = area.capacity - (area.maintenance_count || 0);
-                  const startingPrice = getStartingPrice(area);
+                {finalGroups[mainCat].map((areaGroup: any) => {
+                  const isSelected = data.categoryGroup === areaGroup.name;
+                  
+                  const activeGroupCapacity = areaGroup.allVariations.reduce((sum: number, v: any) => sum + (v.capacity - (v.maintenance_count || 0)), 0);
+                  const startingPrice = getStartingPrice(areaGroup.allVariations);
 
                   return (
                     <div 
-                      key={area.id}
-                      onClick={() => handleSelectCategory(area)}
+                      key={areaGroup.id}
+                      onClick={() => handleSelectCategory(areaGroup)}
                       className={`relative p-5 rounded-2xl border-4 transition-all duration-300 bg-white cursor-pointer ${
                         isSelected 
                           ? 'border-orange-500 shadow-md scale-[1.02]' 
@@ -130,12 +193,11 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
                           {mainCat === 'Karavan Kiralama' ? <Truck size={28} /> : <Map size={28} />}
                         </div>
                         <div>
-                          <h4 className={`font-black text-lg leading-tight mb-2 ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{area.name}</h4>
+                          <h4 className={`font-black text-lg leading-tight mb-2 ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{areaGroup.name}</h4>
                           
-                          {/* 🚀 GÜNCEL VİTRİN BİLGİLERİ (Ürün vs Alan Kapasitesi) */}
                           <div className="flex flex-wrap gap-2">
                             <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md tracking-wide">
-                              {mainCat === 'Karavan Kiralama' ? 'ÜRÜN' : 'ALAN'} KAPASİTESİ: {activeCapacity}
+                              {mainCat === 'Karavan Kiralama' ? 'ÜRÜN' : 'ALAN'} KAPASİTESİ: {activeGroupCapacity}
                             </span>
                             {startingPrice > 0 && (
                               <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-2 py-1 rounded-md tracking-wide">
@@ -158,7 +220,7 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
       <div className="flex justify-end pt-4">
         <button 
           onClick={onNext} 
-          disabled={!data.category}
+          disabled={!data.categoryGroup}
           className="w-full sm:w-auto px-12 py-4 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           style={{ backgroundColor: 'var(--color-brand-green)' }}
         >
