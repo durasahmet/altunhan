@@ -1,13 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag } from "lucide-react";
+import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../../lib/supabase";
 
 export default function TabAreas({ areas }: any) {
   const [areaList, setAreaList] = useState<any[]>([]);
   
-  // Veritabanından gelen veriyi state'e aktar (6 Fiyat ve Kategori dahil)
   useEffect(() => {
     if (areas) {
       setAreaList(areas.map((a: any) => ({
@@ -15,6 +14,7 @@ export default function TabAreas({ areas }: any) {
         mapPos: { top: a.map_top || "50%", left: a.map_left || "50%" },
         maintenanceCount: a.maintenance_count || 0,
         main_category: a.main_category || "Karavan Kiralama",
+        person_capacity: a.person_capacity || "Standart", // 🚀 YENİ EKLENDİ
         price_daily: a.price_daily || 0,
         price_3days: a.price_3days || 0,
         price_weekly: a.price_weekly || 0,
@@ -28,10 +28,10 @@ export default function TabAreas({ areas }: any) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   
-  // Düzenleme veya Yeni Ekleme sırasındaki anlık verimiz
   const [currentArea, setCurrentArea] = useState<any>({
     id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
-    main_category: "Karavan Kiralama", // Varsayılan Kategori
+    main_category: "Karavan Kiralama", 
+    person_capacity: "Standart", // 🚀 YENİ EKLENDİ
     price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
     mapPos: { top: "50%", left: "50%" }
   });
@@ -48,6 +48,7 @@ export default function TabAreas({ areas }: any) {
     setCurrentArea({ 
       id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
       main_category: "Karavan Kiralama",
+      person_capacity: "Standart",
       price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
       mapPos: { top: "50%", left: "50%" } 
     });
@@ -60,11 +61,11 @@ export default function TabAreas({ areas }: any) {
     setIsModalOpen(true);
   };
 
-  // SUPABASE'E TAM KAPSAMLI KAYDETME
   const handleSave = async () => {
     const payload = {
       name: currentArea.name,
       main_category: currentArea.main_category,
+      person_capacity: currentArea.person_capacity, // 🚀 YENİ EKLENDİ
       capacity: parseInt(currentArea.capacity) || 0,
       price_daily: parseInt(currentArea.price_daily) || 0,
       price_3days: parseInt(currentArea.price_3days) || 0,
@@ -141,10 +142,16 @@ export default function TabAreas({ areas }: any) {
             <div key={area.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 transition-all hover:border-orange-200">
               
               <div className="w-full lg:w-auto flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
                     <Tag size={10} /> {area.main_category}
                   </span>
+                  {/* 🚀 LİSTEDE KİŞİ KAPASİTESİ GÖSTERİMİ */}
+                  {area.person_capacity && area.person_capacity !== "Standart" && (
+                    <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                      <Users size={10} /> {area.person_capacity}
+                    </span>
+                  )}
                   <h3 className="font-black text-xl text-gray-800">{area.name}</h3>
                   {area.maintenanceCount > 0 && (
                     <span className="bg-red-100 text-red-600 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
@@ -158,7 +165,6 @@ export default function TabAreas({ areas }: any) {
                   <div className="bg-blue-500 h-full transition-all" style={{ width: `${activeCapacity > 0 ? (area.occupied / activeCapacity) * 100 : 0}%` }}></div>
                 </div>
 
-                {/* Dinamik Fiyat Özetleri (Sadece 0'dan büyük olanlar listelenir) */}
                 <div className="flex flex-wrap gap-2 text-xs font-bold">
                   {area.price_daily > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> Gün: {area.price_daily}₺</span>}
                   {area.price_3days > 0 && <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CreditCard size={12}/> 3 Gün: {area.price_3days}₺</span>}
@@ -191,7 +197,6 @@ export default function TabAreas({ areas }: any) {
         })}
       </div>
 
-      {/* DÜZENLEME MODALI */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
@@ -206,8 +211,8 @@ export default function TabAreas({ areas }: any) {
 
               <div className="p-6 space-y-6">
                 
-                {/* 1. Kategori, Ad ve Kapasite */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* 1. Kategori, Ad, Kapasite ve KİŞİ SEÇENEĞİ */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ana Başlık</label>
                     <select 
@@ -220,16 +225,30 @@ export default function TabAreas({ areas }: any) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ünite Adı (Parsel/Tip)</label>
-                    <input type="text" placeholder="Örn: VIP Karavan" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.name} onChange={e => setCurrentArea({...currentArea, name: e.target.value})} />
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ünite Adı</label>
+                    <input type="text" placeholder="Örn: Maxi Karavan" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.name} onChange={e => setCurrentArea({...currentArea, name: e.target.value})} />
+                  </div>
+                  {/* 🚀 YENİ KİŞİ KAPASİTESİ SEÇİCİSİ */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Users size={12}/> Kişi Sayısı</label>
+                    <select 
+                      className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors appearance-none bg-white"
+                      value={currentArea.person_capacity} 
+                      onChange={e => setCurrentArea({...currentArea, person_capacity: e.target.value})}
+                    >
+                      <option value="Standart">Standart / Çadır</option>
+                      <option value="2 Kişilik">2 Kişilik</option>
+                      <option value="4 Kişilik">4 Kişilik</option>
+                      <option value="6 Kişilik">6 Kişilik</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Toplam Kapasite</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Stok (Adet)</label>
                     <input type="number" placeholder="Örn: 50" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.capacity} onChange={e => setCurrentArea({...currentArea, capacity: e.target.value})} />
                   </div>
                 </div>
 
-                {/* 2. Dinamik Fiyatlandırma Tablosu (6 Seçenek) */}
+                {/* 2. Dinamik Fiyatlandırma Tablosu */}
                 <div>
                   <div className="flex justify-between items-end mb-2">
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><CreditCard size={14}/> Fiyat Listesi (₺)</label>
