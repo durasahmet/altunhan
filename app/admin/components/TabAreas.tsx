@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag, Users } from "lucide-react";
+import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag, Users, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../../lib/supabase";
 
@@ -14,7 +14,7 @@ export default function TabAreas({ areas }: any) {
         mapPos: { top: a.map_top || "50%", left: a.map_left || "50%" },
         maintenanceCount: a.maintenance_count || 0,
         main_category: a.main_category || "Karavan Kiralama",
-        person_capacity: a.person_capacity || "Standart", // 🚀 YENİ EKLENDİ
+        person_capacity: a.person_capacity || "Standart", 
         price_daily: a.price_daily || 0,
         price_3days: a.price_3days || 0,
         price_weekly: a.price_weekly || 0,
@@ -31,7 +31,7 @@ export default function TabAreas({ areas }: any) {
   const [currentArea, setCurrentArea] = useState<any>({
     id: null, name: "", capacity: "", occupied: 0, status: "active", maintenanceCount: 0, 
     main_category: "Karavan Kiralama", 
-    person_capacity: "Standart", // 🚀 YENİ EKLENDİ
+    person_capacity: "Standart",
     price_daily: 0, price_3days: 0, price_weekly: 0, price_monthly: 0, price_6months: 0, price_yearly: 0, 
     mapPos: { top: "50%", left: "50%" }
   });
@@ -65,7 +65,7 @@ export default function TabAreas({ areas }: any) {
     const payload = {
       name: currentArea.name,
       main_category: currentArea.main_category,
-      person_capacity: currentArea.person_capacity, // 🚀 YENİ EKLENDİ
+      person_capacity: currentArea.person_capacity, 
       capacity: parseInt(currentArea.capacity) || 0,
       price_daily: parseInt(currentArea.price_daily) || 0,
       price_3days: parseInt(currentArea.price_3days) || 0,
@@ -146,7 +146,6 @@ export default function TabAreas({ areas }: any) {
                   <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
                     <Tag size={10} /> {area.main_category}
                   </span>
-                  {/* 🚀 LİSTEDE KİŞİ KAPASİTESİ GÖSTERİMİ */}
                   {area.person_capacity && area.person_capacity !== "Standart" && (
                     <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
                       <Users size={10} /> {area.person_capacity}
@@ -211,7 +210,12 @@ export default function TabAreas({ areas }: any) {
 
               <div className="p-6 space-y-6">
                 
-                {/* 1. Kategori, Ad, Kapasite ve KİŞİ SEÇENEĞİ */}
+                {/* 🚀 BİLGİ MESAJI EKLENDİ */}
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 text-sm text-blue-800 font-medium">
+                  <Info className="text-blue-500 shrink-0" size={20} />
+                  <p>Farklı kişi kapasiteleri (Örn: 2 Kişilik ve 4 Kişilik) için farklı fiyatlar belirlemek istiyorsanız, her kapasiteyi ayrı bir ünite olarak eklemelisiniz. Böylece her birinin stoğunu (adet) ayrı ayrı takip edebilirsiniz.</p>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ana Başlık</label>
@@ -228,7 +232,6 @@ export default function TabAreas({ areas }: any) {
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ünite Adı</label>
                     <input type="text" placeholder="Örn: Maxi Karavan" className="w-full p-4 rounded-xl border-2 border-gray-100 outline-none focus:border-orange-500 font-bold text-gray-800 transition-colors" value={currentArea.name} onChange={e => setCurrentArea({...currentArea, name: e.target.value})} />
                   </div>
-                  {/* 🚀 YENİ KİŞİ KAPASİTESİ SEÇİCİSİ */}
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Users size={12}/> Kişi Sayısı</label>
                     <select 
@@ -248,7 +251,7 @@ export default function TabAreas({ areas }: any) {
                   </div>
                 </div>
 
-                {/* 2. Dinamik Fiyatlandırma Tablosu */}
+                {/* Dinamik Fiyatlandırma Tablosu */}
                 <div>
                   <div className="flex justify-between items-end mb-2">
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><CreditCard size={14}/> Fiyat Listesi (₺)</label>
@@ -277,7 +280,7 @@ export default function TabAreas({ areas }: any) {
                   </div>
                 </div>
 
-                {/* 3. İnteraktif Harita */}
+                {/* İnteraktif Harita */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><MapPin size={16}/> Harita Konumu</label>
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-gray-100 cursor-crosshair group shadow-inner" onClick={handleMapClick}>
@@ -292,7 +295,6 @@ export default function TabAreas({ areas }: any) {
                   </div>
                 </div>
 
-                {/* 4. Kaydet Butonu */}
                 <button onClick={handleSave} className="w-full py-4 bg-green-500 text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-green-500/30">
                   <Save size={24} /> Tüm Değişiklikleri Kaydet
                 </button>
