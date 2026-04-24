@@ -1,6 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, MapPin, Save, Wrench, CreditCard, Tag, Users, Info, ChevronDown, ChevronUp, Layers } from "lucide-react";
+import {
+  Plus, Settings, X, MapPin, Save, Wrench, CreditCard,
+  Tag, Users, Info, ChevronDown, ChevronUp, Layers, Check
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../../lib/supabase";
 
@@ -45,26 +48,191 @@ const emptyVariant = (): AreaVariant => ({
   price_yearly: 0,
 });
 
-const PRICE_LABELS = [
-  { label: "Günlük", key: "price_daily" },
-  { label: "3 Günlük", key: "price_3days" },
-  { label: "Haftalık", key: "price_weekly" },
-  { label: "Aylık", key: "price_monthly" },
-  { label: "6 Aylık", key: "price_6months" },
-  { label: "Yıllık", key: "price_yearly" },
+const PRICE_LABELS: { label: string; key: keyof AreaVariant; icon: string }[] = [
+  { label: "Günlük",   key: "price_daily",   icon: "1G" },
+  { label: "3 Günlük", key: "price_3days",   icon: "3G" },
+  { label: "Haftalık", key: "price_weekly",  icon: "7G" },
+  { label: "Aylık",    key: "price_monthly", icon: "1A" },
+  { label: "6 Aylık",  key: "price_6months", icon: "6A" },
+  { label: "Yıllık",   key: "price_yearly",  icon: "1Y" },
 ];
 
-const CAPACITY_OPTIONS = ["Standart / Çadır", "2 Kişilik", "4 Kişilik", "6 Kişilik", "8 Kişilik"];
+const CAPACITY_OPTIONS = [
+  "Standart / Çadır",
+  "2 Kişilik",
+  "4 Kişilik",
+  "6 Kişilik",
+  "8 Kişilik",
+];
+
+// ─── VARİANT DÜZENLEME PANELİ ────────────────────────────────────────────────
+function VariantEditor({
+  variants,
+  onAddVariant,
+  onRemoveVariant,
+  onUpdateVariant,
+}: {
+  variants: AreaVariant[];
+  onAddVariant: () => void;
+  onRemoveVariant: (idx: number) => void;
+  onUpdateVariant: (idx: number, field: string, value: any) => void;
+}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  // Aktif idx sınır kontrolü
+  const safeIdx = Math.min(activeIdx, variants.length - 1);
+  const activeVariant = variants[safeIdx];
+
+  const handleAdd = () => {
+    onAddVariant();
+    // Yeni eklenen son item'e geç
+    setActiveIdx(variants.length); // variants henüz güncellenmedi, yeni idx = current length
+  };
+
+  const handleRemove = (idx: number) => {
+    onRemoveVariant(idx);
+    setActiveIdx((prev) => Math.max(0, prev >= idx ? prev - 1 : prev));
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Başlık + Ekle */}
+      <div className="flex justify-between items-center">
+        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          <Users size={14} /> Kapasite Kategorileri
+        </label>
+        <button
+          onClick={handleAdd}
+          className="text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-orange-200"
+        >
+          <Plus size={14} /> Kategori Ekle
+        </button>
+      </div>
+
+      {/* Ana İki Sütun */}
+      <div className="flex gap-3 min-h-[320px]">
+        {/* Sol: Kategori Listesi */}
+        <div className="w-44 shrink-0 flex flex-col gap-1.5">
+          {variants.map((v, idx) => (
+            <button
+              key={idx}
+              onClick={() => setActiveIdx(idx)}
+              className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold text-left transition-all border ${
+                idx === safeIdx
+                  ? "bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-200"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:text-orange-600"
+              }`}
+            >
+              <Users size={13} className="shrink-0" />
+              <span className="truncate flex-1">{v.person_capacity}</span>
+              {idx === safeIdx && <Check size={13} className="shrink-0" />}
+
+              {/* Sil butonu - sadece hover ve birden fazla variant varsa */}
+              {variants.length > 1 && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
+                  className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all
+                    ${idx === safeIdx
+                      ? "bg-red-500 text-white opacity-0 group-hover:opacity-100"
+                      : "bg-red-100 text-red-500 opacity-0 group-hover:opacity-100"
+                    }`}
+                >
+                  <X size={10} />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Sağ: Seçili Kategorinin Detayları */}
+        {activeVariant && (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={safeIdx}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-4"
+            >
+              {/* Kapasite Tipi + Stok */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Kapasite Tipi
+                  </label>
+                  <select
+                    className="w-full p-2.5 rounded-xl border border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 text-sm bg-white"
+                    value={activeVariant.person_capacity}
+                    onChange={(e) => onUpdateVariant(safeIdx, "person_capacity", e.target.value)}
+                  >
+                    {CAPACITY_OPTIONS.map((o) => (
+                      <option key={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Stok (Adet)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full p-2.5 rounded-xl border border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 text-sm bg-white"
+                    value={activeVariant.capacity}
+                    onChange={(e) => onUpdateVariant(safeIdx, "capacity", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Fiyat Listesi */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard size={14} className="text-green-600" />
+                  <span className="text-[10px] font-bold text-green-700 uppercase tracking-wider">
+                    {activeVariant.person_capacity} — Fiyat Listesi
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {PRICE_LABELS.map(({ label, key, icon }) => (
+                    <div key={key} className="bg-white rounded-xl border border-green-100 p-2.5 space-y-1 shadow-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black text-green-600 bg-green-100 px-1.5 py-0.5 rounded">
+                          {icon}
+                        </span>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">
+                          {label}
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full p-1.5 rounded-lg border border-gray-100 font-bold text-gray-800 text-sm outline-none focus:border-green-400 bg-gray-50"
+                          value={(activeVariant as any)[key]}
+                          onChange={(e) => onUpdateVariant(safeIdx, key as string, e.target.value)}
+                        />
+                        <span className="text-xs font-black text-gray-400">₺</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── ANA BİLEŞEN ──────────────────────────────────────────────────────────────
 export default function TabAreas({ areas }: { areas: any[] }) {
   const [areaList, setAreaList] = useState<Area[]>([]);
 
-  // ── Supabase'den varyantları çek ──
   useEffect(() => {
     const fetchVariants = async () => {
       if (!areas || areas.length === 0) return;
-
       const areaIds = areas.map((a) => a.id);
       const { data: variants } = await supabase
         .from("area_variants")
@@ -75,9 +243,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
         areas.map((a) => ({
           ...a,
           isOpen: false,
-          variants: variants
-            ? variants.filter((v: any) => v.area_id === a.id)
-            : [],
+          variants: variants ? variants.filter((v: any) => v.area_id === a.id) : [],
         }))
       );
     };
@@ -96,7 +262,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     variants: [emptyVariant()],
   });
 
-  // ─── HARITA TIKLAMA ──────────────────────────────────────────────────────────
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -104,7 +269,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     setCurrentArea({ ...currentArea, map_top: `${y}%`, map_left: `${x}%` });
   };
 
-  // ─── YENI / DÜZENLE ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
     setEditMode(false);
     setCurrentArea({
@@ -122,10 +286,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     setEditMode(true);
     setCurrentArea({
       ...area,
-      variants:
-        area.variants && area.variants.length > 0
-          ? area.variants
-          : [emptyVariant()],
+      variants: area.variants && area.variants.length > 0 ? area.variants : [emptyVariant()],
     });
     setIsModalOpen(true);
   };
@@ -162,10 +323,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     let areaId = currentArea.id;
 
     if (editMode && areaId) {
-      const { error } = await supabase
-        .from("areas")
-        .update(areaPayload)
-        .eq("id", areaId);
+      const { error } = await supabase.from("areas").update(areaPayload).eq("id", areaId);
       if (error) return alert("Alan güncellenirken hata: " + error.message);
     } else {
       const { data, error } = await supabase
@@ -176,7 +334,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
       areaId = data[0].id;
     }
 
-    // Mevcut varyantları sil, yeniden ekle (upsert alternatifi)
     if (editMode && areaId) {
       await supabase.from("area_variants").delete().eq("area_id", areaId);
     }
@@ -418,7 +575,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-5xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20"
+              className="w-full max-w-3xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20"
             >
               {/* Modal Başlık */}
               <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
@@ -437,11 +594,10 @@ export default function TabAreas({ areas }: { areas: any[] }) {
               <div className="p-6 space-y-6">
                 {/* Bilgi */}
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 text-sm text-blue-800 font-medium">
-                  <Info className="text-blue-500 shrink-0" size={20} />
+                  <Info className="text-blue-500 shrink-0 mt-0.5" size={18} />
                   <p>
-                    Her alan altına istediğiniz kadar kapasite kategorisi (2 kişilik, 4 kişilik vb.)
-                    ekleyebilirsiniz. Her kategorinin ayrı stoku ve fiyatı olur. Rezervasyon
-                    sayfasında kişi sayısı seçildiğinde yalnızca uygun kategoriler gösterilir.
+                    Sol listeden kategori seçin, sağ panelde o kategoriye ait kapasite ve fiyatları düzenleyin.
+                    Yeni kategori eklemek için <strong>Kategori Ekle</strong> butonunu kullanın.
                   </p>
                 </div>
 
@@ -478,89 +634,13 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                   </div>
                 </div>
 
-                {/* ─── KAPASİTE KATEGORİLERİ ─────────────────────────────────── */}
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                      <Users size={14} /> Kapasite Kategorileri
-                    </label>
-                    <button
-                      onClick={addVariant}
-                      className="text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-orange-200"
-                    >
-                      <Plus size={14} /> Kategori Ekle
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {(currentArea.variants || []).map((v, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-4"
-                      >
-                        {/* Kategori Başlık Satırı */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-xs font-black text-gray-500 uppercase">
-                            Kategori {idx + 1}
-                          </span>
-                          <select
-                            className="p-2.5 rounded-xl border border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 text-sm bg-white flex-1 min-w-[140px]"
-                            value={v.person_capacity}
-                            onChange={(e) =>
-                              updateVariant(idx, "person_capacity", e.target.value)
-                            }
-                          >
-                            {CAPACITY_OPTIONS.map((o) => (
-                              <option key={o}>{o}</option>
-                            ))}
-                          </select>
-                          <div className="flex items-center gap-2 flex-1 min-w-[120px]">
-                            <label className="text-xs font-bold text-gray-400 whitespace-nowrap">
-                              Stok (Adet):
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              className="w-full p-2.5 rounded-xl border border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 text-sm bg-white"
-                              value={v.capacity}
-                              onChange={(e) =>
-                                updateVariant(idx, "capacity", e.target.value)
-                              }
-                            />
-                          </div>
-                          {(currentArea.variants || []).length > 1 && (
-                            <button
-                              onClick={() => removeVariant(idx)}
-                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <X size={18} />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Fiyat Tablosu */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 bg-green-50/60 p-3 rounded-xl border border-green-100">
-                          {PRICE_LABELS.map(({ label, key }) => (
-                            <div key={key} className="space-y-1">
-                              <label className="text-[10px] font-bold text-green-700 uppercase">
-                                {label}
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                className="w-full p-2 rounded-lg border border-white shadow-sm font-bold text-gray-800 text-sm outline-none focus:border-green-500 bg-white"
-                                value={(v as any)[key]}
-                                onChange={(e) =>
-                                  updateVariant(idx, key, e.target.value)
-                                }
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* ─── KAPASİTE KATEGORİLERİ (Sol-Sağ Panel) ─────────────────── */}
+                <VariantEditor
+                  variants={currentArea.variants || [emptyVariant()]}
+                  onAddVariant={addVariant}
+                  onRemoveVariant={removeVariant}
+                  onUpdateVariant={updateVariant}
+                />
 
                 {/* Harita */}
                 <div>
