@@ -1,7 +1,6 @@
 "use client";
-
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Camera, Search, CheckCircle, XCircle, ShieldAlert, User, MapPin, Clock, SwitchCamera } from "lucide-react";
+import { Camera, Search, CheckCircle, XCircle, ShieldAlert, User, MapPin, Clock, SwitchCamera, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../../lib/supabase";
 
@@ -127,11 +126,9 @@ export default function TabGate() {
   };
 
   return (
-    // ✅ DEĞİŞİKLİK 1: lg:h — sabit yükseklik sadece masaüstünde
     <div className="flex flex-col lg:flex-row gap-8 lg:h-[calc(100vh-8rem)]">
 
       <div className="w-full lg:w-1/3 flex flex-col gap-6">
-        {/* ✅ DEĞİŞİKLİK 2: lg:flex-1 — kamera paneli mobilde tüm boşluğu yutmuyor */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 lg:flex-1 flex flex-col">
           <h2 className="text-xl font-black text-gray-800 mb-6 flex items-center gap-2">
             <Camera className="text-orange-500" /> Okuyucu Modülü
@@ -197,14 +194,13 @@ export default function TabGate() {
         </div>
       </div>
 
-      {/* ✅ DEĞİŞİKLİK 3: min-h-[500px] — mobilde sonuç paneli ezilmiyor */}
       <div className="w-full lg:w-2/3 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[500px] lg:min-h-0">
         <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h2 className="text-xl font-black text-gray-800">Sorgu Sonucu</h2>
           {isLoading && <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent" />}
         </div>
 
-        <div className="p-8 flex-1 flex items-center justify-center bg-gray-50/50">
+        <div className="p-8 flex-1 flex items-center justify-center bg-gray-50/50 overflow-y-auto">
           <AnimatePresence mode="wait">
             {!result && !isLoading && (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center text-gray-400">
@@ -225,6 +221,30 @@ export default function TabGate() {
                   <div className="flex items-center gap-3"><User className="text-gray-400" /><span className="font-bold text-lg text-gray-800">{result.user.name}</span></div>
                   <div className="flex items-center gap-3"><MapPin className="text-orange-500" /><span className="font-bold text-gray-600">Bölge: <span className="text-gray-800">{result.user.category} / {result.user.parcel}</span></span></div>
                   <div className="flex items-center gap-3"><Clock className="text-blue-500" /><span className="font-bold text-gray-600">Üyelik Numarası: <span className="text-gray-800">{result.user.id}</span></span></div>
+                  
+                  {/* 🚀 YENİ EKLENEN KBS (MİSAFİR LİSTESİ) BÖLÜMÜ */}
+                  {result.user.guests_data && result.user.guests_data.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users className="text-blue-500" size={18} />
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Konaklayacak Kişiler (KBS)</h4>
+                      </div>
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        {result.user.guests_data.map((guest: any, idx: number) => (
+                          <div key={idx} className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex justify-between items-center">
+                             <div>
+                                <p className="font-bold text-gray-800 text-sm">{guest.name}</p>
+                                <p className="text-xs font-medium text-gray-500">TC: {guest.tc}</p>
+                             </div>
+                             <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase ${guest.type === 'Yetişkin' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                                {guest.type}
+                             </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-6 pt-6 border-t border-gray-100 text-center">
                     <button onClick={handleReset} className="text-green-600 font-bold text-sm bg-green-50 px-4 py-2 rounded-lg hover:bg-green-100 transition-colors w-full">Sonraki Taramaya Geç</button>
                   </div>

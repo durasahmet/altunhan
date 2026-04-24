@@ -26,7 +26,6 @@ export default function AdminDashboard() {
     return currentAreas.map(area => {
       // Bu alana ait ve ŞU AN aktif (bugün tarihi giriş-çıkış aralığında olan) müşterileri bul
       const activeInThisArea = currentMembers.filter(m => {
-        // İsim eşleşmesi garantisi (Eski kayıtlarda JSON kalmış olabilir diye güvenlik önlemi)
         let catName = m.category;
         try {
           const parsed = JSON.parse(m.category);
@@ -55,10 +54,11 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setIsLoading(true);
     
-    // Hem rezervasyonları hem alanları aynı anda çek
-    const [resResponse, areasResponse] = await Promise.all([
+    // 🚀 YENİ SİSTEM: Artık 3 tabloyu da çekiyoruz (Varyantlar eklendi)
+    const [resResponse, areasResponse, variantsResponse] = await Promise.all([
       supabase.from('reservations').select('*'),
-      supabase.from('areas').select('*').order('id')
+      supabase.from('areas').select('*').order('id'),
+      supabase.from('area_variants').select('*') // Alt kapasiteleri çeker
     ]);
 
     if (resResponse.error || areasResponse.error) {
@@ -69,6 +69,20 @@ export default function AdminDashboard() {
 
     const allReservations = resResponse.data || [];
     const rawAreas = areasResponse.data || [];
+    const rawVariants = variantsResponse.data || [];
+
+    // 🚀 DÜZELTME: Varyantların toplam kapasitelerini Ana Kategoriye aktar
+    const areasWithCapacities = rawAreas.map(area => {
+      const areaVariants = rawVariants.filter(v => v.area_id === area.id);
+      const totalCapacity = areaVariants.reduce((sum, v) => sum + (v.capacity || 0), 0);
+      const totalMaintenance = areaVariants.reduce((sum, v) => sum + (v.maintenance_count || 0), 0);
+      
+      return {
+        ...area,
+        capacity: totalCapacity, // NaN hatasını çözen kısım!
+        maintenance_count: totalMaintenance
+      };
+    });
 
     const pendingData = allReservations.filter((r: any) => r.status === 'pending');
     const approvedData = allReservations.filter((r: any) => r.status === 'approved');
@@ -76,22 +90,20 @@ export default function AdminDashboard() {
     setPending(pendingData);
     setMembers(approvedData);
 
-    // 🚀 Alanları state'e atarken GERÇEK ZAMANLI doluluğu hesapla ve öyle at
-    const smartAreas = calculateRealTimeOccupancy(rawAreas, approvedData);
+    // 🚀 Alanları state'e atarken GERÇEK ZAMANLI doluluğu hesapla
+    const smartAreas = calculateRealTimeOccupancy(areasWithCapacities, approvedData);
     setAreas(smartAreas);
     
     setIsLoading(false);
   };
 
-  // 🚀 ONAYLA: Arayüzü anında güncelle ve hesaplamayı baştan yap
+  // ONAYLA: Arayüzü anında güncelle ve hesaplamayı baştan yap
   const handleApprove = async (req: any) => {
     const newPending = pending.filter(p => p.id !== req.id);
     const newMembers = [{...req, status: 'approved'}, ...members];
     
     setPending(newPending);
     setMembers(newMembers);
-    
-    // Doluluk barlarını anında güncelle
     setAreas(calculateRealTimeOccupancy(areas, newMembers));
 
     await supabase.from('reservations').update({ status: 'approved' }).eq('id', req.id);
@@ -100,21 +112,15 @@ export default function AdminDashboard() {
   const handleUpdateMember = async (updatedMember: any) => {
     const newMembers = members.map(m => m.id === updatedMember.id ? updatedMember : m);
     setMembers(newMembers);
-    
-    // Belki süresi uzatıldı, doluluğu tekrar hesapla
     setAreas(calculateRealTimeOccupancy(areas, newMembers)); 
-    
     await supabase.from('reservations').update({ phone: updatedMember.phone }).eq('id', updatedMember.id);
   };
 
-  // 🚀 SİL: Arayüzü anında güncelle ve hesaplamayı baştan yap
+  // SİL: Arayüzü anında güncelle ve hesaplamayı baştan yap
   const handleDeleteMember = async (memberId: string) => {
     const newMembers = members.filter(m => m.id !== memberId);
     setMembers(newMembers);
-    
-    // Biri silinince doluluk barlarını anında güncelle
     setAreas(calculateRealTimeOccupancy(areas, newMembers));
-    
     await supabase.from('reservations').delete().eq('id', memberId);
   };
 

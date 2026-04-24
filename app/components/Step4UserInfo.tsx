@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, X, FileText } from "lucide-react";
+import { ArrowRight, X, FileText, Users, User, Car } from "lucide-react";
 
 export default function Step4UserInfo({
   data,
@@ -11,15 +11,31 @@ export default function Step4UserInfo({
   slideVariants
 }: any) {
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false); // Pop-up State'i
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+
+  // 🚀 YETİŞKİN VE ÇOCUK SAYISINI ÇEK (Varsayılan 1 Yetişkin)
+  const totalAdults = data.guests?.adults || 1;
+  const totalChildren = data.guests?.children || 0;
+  const totalGuests = totalAdults + totalChildren;
+
+  // 🚀 DİNAMİK MİSAFİR LİSTESİ OLUŞTURUCU
+  // Eğer guestList yoksa veya sayısı değişmişse (Kullanıcı geri dönüp sayıyı değiştirmiş olabilir), yeniden oluştur
+  useEffect(() => {
+    if (!data.customer.guestsList || data.customer.guestsList.length !== totalGuests) {
+      const initialGuests = Array.from({ length: totalGuests }).map((_, i) => ({
+        type: i < totalAdults ? 'Yetişkin' : 'Çocuk',
+        name: "",
+        tc: ""
+      }));
+      setData({ ...data, customer: { ...data.customer, guestsList: initialGuests } });
+    }
+  }, [totalAdults, totalChildren]);
 
   const calculateEndDate = () => {
     if (!data.startDate || !data.package) return "Hesaplanıyor...";
-    
     const start = new Date(data.startDate);
     const days = parseInt(String(data.package.duration).replace(/\D/g, ''), 10) || 0; 
     const end = new Date(start.getTime() + (days * 24 * 60 * 60 * 1000));
-    
     return end.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
@@ -36,7 +52,22 @@ export default function Step4UserInfo({
     });
   };
 
-  const isValid = termsAccepted && data.customer.name && data.customer.phone;
+  // Dinamik Misafir Alanlarını Güncelleme Fonksiyonu
+  const handleGuestChange = (index: number, field: string, value: string) => {
+    const updatedGuests = [...(data.customer.guestsList || [])];
+    updatedGuests[index] = { ...updatedGuests[index], [field]: value };
+    setData({
+      ...data,
+      customer: { ...data.customer, guestsList: updatedGuests }
+    });
+  };
+
+  // 🚀 SIKI DOĞRULAMA (VALIDATION)
+  // 1. Şartlar kabul edildi mi?
+  // 2. Ana iletişim bilgileri dolu mu?
+  // 3. (ÖNEMLİ) Dinamik oluşturulan tüm misafirlerin İsim ve TC'leri dolu mu?
+  const areAllGuestsFilled = data.customer.guestsList?.every((g: any) => g.name.trim() !== "" && g.tc.trim() !== "");
+  const isValid = termsAccepted && data.customer.name && data.customer.phone && areAllGuestsFilled;
 
   return (
     <>
@@ -48,9 +79,10 @@ export default function Step4UserInfo({
           <div className="flex justify-between items-end border-b border-white/20 pb-4 mb-4">
             <div>
               <p className="text-xs text-green-200 uppercase tracking-wider mb-1">Seçiminiz</p>
-              <p className="font-black text-lg">{data.category?.name}</p>
+              <p className="font-black text-lg">{data.categoryGroup || data.category?.name}</p>
               <p className="font-medium text-green-100">{data.package?.name} ({data.package?.duration})</p>
-              <p className="text-sm font-bold bg-white/20 inline-block px-2 py-1 rounded mt-2">Parsel: {data.parcel}</p>
+              <p className="text-sm font-bold bg-white/20 inline-block px-2 py-1 rounded mt-2 mr-2">Alan: {data.parcel}</p>
+              <p className="text-sm font-bold bg-white/20 inline-block px-2 py-1 rounded mt-2">{totalGuests} Kişi</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-green-200 uppercase tracking-wider mb-1">Toplam Tutar</p>
@@ -64,24 +96,61 @@ export default function Step4UserInfo({
           </div>
         </div>
 
-        {/* Form Alanları (Kayıt ve Bilgi) */}
+        {/* 1. BÖLÜM: HESAP SAHİBİ (İLETİŞİM BİLGİLERİ) */}
         <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 shadow-sm">
-          <h3 className="text-sm font-black text-gray-400 mb-4 uppercase tracking-wider">İletişim ve Hesap Bilgileri</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <User className="text-orange-500" size={20} />
+            <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">İletişim Bilgileri (Hesap Sahibi)</h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-4 font-medium">Biletiniz ve rezervasyon detaylarınız bu iletişim bilgilerine gönderilecektir.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input type="text" placeholder="Ad Soyad" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-green-600 text-gray-800 font-bold transition-colors" value={data.customer.name} onChange={e => handleInputChange('name', e.target.value)} />
-            <input type="tel" placeholder="Telefon Numarası" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-green-600 text-gray-800 font-bold transition-colors" value={data.customer.phone} onChange={e => handleInputChange('phone', e.target.value)} />
-            
-            <input type="email" placeholder="E-Posta Adresi" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-green-600 text-gray-800 font-bold transition-colors" value={data.customer.email || ''} onChange={e => handleInputChange('email', e.target.value)} />
-            <input type="password" placeholder="Hesap Şifresi Belirleyin" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-green-600 text-gray-800 font-bold transition-colors" value={data.customer.password || ''} onChange={e => handleInputChange('password', e.target.value)} />
+            <input type="text" placeholder="Ad Soyad" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 text-gray-800 font-bold transition-colors" value={data.customer.name} onChange={e => handleInputChange('name', e.target.value)} />
+            <input type="tel" placeholder="Telefon Numarası" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 text-gray-800 font-bold transition-colors" value={data.customer.phone} onChange={e => handleInputChange('phone', e.target.value)} />
+            <input type="email" placeholder="E-Posta Adresi" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 text-gray-800 font-bold transition-colors" value={data.customer.email || ''} onChange={e => handleInputChange('email', e.target.value)} />
+            <input type="password" placeholder="Sisteme Giriş Şifresi Belirleyin" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 text-gray-800 font-bold transition-colors" value={data.customer.password || ''} onChange={e => handleInputChange('password', e.target.value)} />
           </div>
         </div>
 
-        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 shadow-sm">
-          <h3 className="text-sm font-black text-gray-400 mb-4 uppercase tracking-wider">Kimlik ve Araç Bilgileri</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input type="text" placeholder="TC / Pasaport No" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-green-600 text-gray-800 font-bold transition-colors" value={data.customer.tc} onChange={e => handleInputChange('tc', e.target.value)} />
-            <input type="text" placeholder="Araç Plakası" className="p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-green-600 text-gray-800 font-bold transition-colors" value={data.customer.plate} onChange={e => handleInputChange('plate', e.target.value)} />
+        {/* 2. BÖLÜM: KONAKLAYANLARIN BİLGİLERİ (KBS İÇİN ZORUNLU) */}
+        <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 mb-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="text-blue-500" size={20} />
+            <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">Konaklayan Bilgileri (K.B.S)</h3>
           </div>
+          <p className="text-xs text-gray-500 mb-4 font-medium">Yasal zorunluluk gereği konaklayacak <strong>tüm misafirlerin</strong> TC Kimlik ve İsim bilgilerinin eksiksiz girilmesi gerekmektedir.</p>
+          
+          <div className="space-y-4">
+            {data.customer.guestsList?.map((guest: any, index: number) => (
+              <div key={index} className="flex flex-col sm:flex-row gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm relative">
+                <div className="absolute -top-2 -left-2 bg-blue-500 text-white text-[10px] font-black px-2 py-1 rounded-md shadow-sm">
+                  {guest.type} {index + 1}
+                </div>
+                <input 
+                  type="text" 
+                  placeholder={`${guest.type} Ad Soyad`} 
+                  className="flex-1 p-3 pt-4 sm:pt-3 rounded-lg border border-gray-100 outline-none focus:border-blue-500 text-gray-800 font-bold text-sm" 
+                  value={guest.name} 
+                  onChange={e => handleGuestChange(index, 'name', e.target.value)} 
+                />
+                <input 
+                  type="text" 
+                  placeholder="TC Kimlik / Pasaport No" 
+                  className="flex-1 p-3 pt-4 sm:pt-3 rounded-lg border border-gray-100 outline-none focus:border-blue-500 text-gray-800 font-bold text-sm" 
+                  value={guest.tc} 
+                  onChange={e => handleGuestChange(index, 'tc', e.target.value)} 
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. BÖLÜM: ARAÇ BİLGİSİ (OPSİYONEL) */}
+        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Car className="text-gray-400" size={20} />
+            <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">Araç Bilgisi (Opsiyonel)</h3>
+          </div>
+          <input type="text" placeholder="Tesis içine girecek aracınızın plakası (Örn: 34 ABC 123)" className="w-full sm:w-1/2 p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 text-gray-800 font-bold transition-colors" value={data.customer.plate} onChange={e => handleInputChange('plate', e.target.value)} />
         </div>
 
         {/* Sözleşme Onayı */}
@@ -106,7 +175,7 @@ export default function Step4UserInfo({
             className="w-2/3 py-4 text-white rounded-xl font-black transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90" 
             style={{ backgroundColor: 'var(--color-brand-orange)' }}
           >
-            Rezervasyonu Tamamla
+            {isValid ? "Rezervasyonu Tamamla" : "Eksik Bilgileri Doldurun"}
           </button>
         </div>
       </motion.div>
@@ -121,7 +190,6 @@ export default function Step4UserInfo({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
             >
-              {/* Modal Başlığı */}
               <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50 shrink-0">
                 <div className="flex items-center gap-2">
                   <FileText className="text-orange-500" size={24} />
@@ -132,12 +200,10 @@ export default function Step4UserInfo({
                 </button>
               </div>
 
-              {/* Kurallar Listesi (Kaydırılabilir Alan) */}
               <div className="p-6 overflow-y-auto space-y-5 text-sm text-gray-600">
                 <p className="font-medium text-gray-500 mb-2">
                   Değerli misafirimiz, Altunhan Kamp Karavan Alanı'nda sizlere huzurlu ve güvenli bir konaklama deneyimi sunabilmek için aşağıdaki kurallara uyulması büyük önem taşımaktadır:
                 </p>
-                
                 <ul className="space-y-4">
                   <li><strong className="text-gray-800">1. Çıkış İşlemleri:</strong> Konaklama süreniz sona erdiğinde, tesisten ayrılmadan önce resepsiyona/danışmaya bilgi verilmesi zorunludur. Aksi takdirde konaklama hesabınız açık kalmaya devam edecektir.</li>
                   <li><strong className="text-gray-800">2. Kimlik Bildirimi (K.B.S):</strong> Yasal mevzuat ve Kimlik Bildirim Sistemi (K.B.S) gereğince tesisimize giriş yapan tüm misafirlerimizin kimlik ibrazı zorunludur.</li>
@@ -156,11 +222,10 @@ export default function Step4UserInfo({
                 </ul>
               </div>
 
-              {/* Alt Buton */}
               <div className="p-5 border-t border-gray-100 bg-white shrink-0">
                 <button 
                   onClick={() => {
-                    setTermsAccepted(true); // Okudum anladım deyince otomatik tiki atar
+                    setTermsAccepted(true); 
                     setIsRulesModalOpen(false);
                   }} 
                   className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-md"

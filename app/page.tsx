@@ -27,7 +27,7 @@ export default function Home() {
     package: null,
     startDate: "",
     parcel: "",
-    customer: { name: "", phone: "", tc: "", plate: "", email: "", password: "" } 
+    customer: { name: "", phone: "", tc: "", plate: "", email: "", password: "", guestsList: [] } 
   });
 
   const handleLoginSuccess = (type: string) => {
@@ -37,6 +37,7 @@ export default function Home() {
   const nextStep = () => setStep((prev) => prev + 1);
   const prevStep = () => setStep((prev) => prev - 1);
 
+  // 🚀 REZERVASYONU VERİTABANINA YAZAN ANA MOTOR
   const handleCompleteOrder = async () => {
     const code = "M-" + Math.floor(100000 + Math.random() * 900000).toString();
     setReservationCode(code);
@@ -50,19 +51,26 @@ export default function Home() {
       .insert([
         {
           id: code,
-          name: data.customer.name,
+          name: data.customer.name, // Hesap Sahibi
           phone: data.customer.phone,
           email: data.customer.email,
           password: data.customer.password,
-          tc: data.customer.tc,
           plate: data.customer.plate,
-          category: data.category?.name || 'Belirtilmedi',
+          
+          // 🚀 YENİ: Varyasyon ve Kapasite Bilgileri (Doluluk hesabı için kritik)
+          category: data.categoryGroup || data.category?.name || 'Belirtilmedi',
+          person_capacity: data.category?.person_capacity || 'Standart',
+          area_variant_id: data.category?.id, 
+          
           parcel: data.parcel,
           amount: data.package?.price ? `${data.package.price.toLocaleString('tr-TR')} ₺` : 'Belirtilmedi',
           start_date: start.toISOString().split('T')[0],
           end_date: end.toISOString().split('T')[0],
           total_days: days,
-          status: 'pending'
+          status: 'pending',
+
+          // 🚀 YENİ: KBS için tüm misafirlerin JSON listesi
+          guests_data: data.customer.guestsList 
         }
       ]);
 
@@ -73,7 +81,7 @@ export default function Home() {
 
     localStorage.setItem('customerId', code);
     setAuthState({ isLoggedIn: true, userType: "customer" }); 
-    nextStep(); 
+    nextStep(); // Başarılı ekranına geç
   };
 
   const slideVariants = {

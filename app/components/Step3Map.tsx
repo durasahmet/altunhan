@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { MapPin, CheckCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { supabase } from "../../lib/supabase"; // Klasör yolu düzeltildi
+import { supabase } from "../../lib/supabase"; 
 
 export default function Step3Map({ data, setData, onNext, onPrev, slideVariants }: any) {
   const [areas, setAreas] = useState<any[]>([]);
@@ -15,14 +15,12 @@ export default function Step3Map({ data, setData, onNext, onPrev, slideVariants 
       const { data: areasData } = await supabase.from('areas').select('*').eq('status', 'active'); 
 
       if (areasData) {
-        // 1. Adımda seçilen kategoriye (alana) göre filtreleme yapıyoruz!
-        const filteredAreas = areasData.filter((a: any) => a.name === data.category?.name);
+        // 🚀 DÜZELTME: Artık 1. Adımda belirlediğimiz "categoryGroup" adına göre eşleştiriyoruz!
+        const filteredAreas = areasData.filter((a: any) => a.name === data.categoryGroup || a.name === data.category?.area_name);
         setAreas(filteredAreas);
         
-        // Madem sadece 1 tane alan gözükecek, onu otomatik olarak seçili hale getirelim ki müşteri uğraşmasın
         if (filteredAreas.length > 0) {
           setSelectedArea(filteredAreas[0]);
-          // Ana dataya da hemen parcel bilgisini işleyelim
           setData((prev: any) => ({ ...prev, parcel: filteredAreas[0].name }));
         }
       }
@@ -30,7 +28,7 @@ export default function Step3Map({ data, setData, onNext, onPrev, slideVariants 
     };
 
     fetchAreas();
-  }, [data.category]);
+  }, [data.categoryGroup, data.category]);
 
   const handleNext = () => {
     if (selectedArea) {
@@ -51,7 +49,7 @@ export default function Step3Map({ data, setData, onNext, onPrev, slideVariants 
         </div>
       ) : (
         <div className="relative w-full aspect-video bg-gray-100 rounded-3xl border-4 border-gray-200 overflow-hidden shadow-inner group pointer-events-none">
-          {/* Arka Plan Harita Görseli (Tıklamayı kapattık, sadece görsün) */}
+          {/* Arka Plan Harita Görseli */}
           <img 
             src="/Render.jpg" 
             alt="Tesis Haritası" 

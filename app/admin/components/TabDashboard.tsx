@@ -10,7 +10,8 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
 
   let checkInsToday = 0;
   let checkOutsToday = 0;
-  let currentlyActive = 0;
+  let currentlyActiveUnits = 0; // Dolu olan karavan/çadır sayısı
+  let totalPeopleInside = 0;    // 🚀 YENİ: İçerideki toplam insan (nefes) sayısı
   let expiringSoonCount = 0; 
   let futureReservations = 0;
 
@@ -35,8 +36,17 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
       todaysMovements.push({ ...m, type: 'check-out' });
     }
 
+    // EĞER MÜŞTERİ ŞU AN İÇERİDEYSE
     if (start <= today && end >= today) {
-      currentlyActive++;
+      currentlyActiveUnits++;
+      
+      // 🚀 KBS verisindeki kişi sayısını toplama ekle
+      if (m.guests_data && Array.isArray(m.guests_data)) {
+        totalPeopleInside += m.guests_data.length;
+      } else {
+        totalPeopleInside += 1; // Eski kayıtsa en az 1 kişi say
+      }
+
       const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 3600 * 24));
       if (diffDays > 0 && diffDays <= 3) {
         expiringSoonCount++;
@@ -51,13 +61,13 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
   const totalCapacity = areas.reduce((acc: number, area: any) => acc + (area.capacity || 0), 0);
   const totalMaintenance = areas.reduce((acc: number, area: any) => acc + (area.maintenance_count || 0), 0);
   const activeCapacity = totalCapacity - totalMaintenance;
-  const occupancyRate = activeCapacity > 0 ? Math.round((currentlyActive / activeCapacity) * 100) : 0;
+  const occupancyRate = activeCapacity > 0 ? Math.round((currentlyActiveUnits / activeCapacity) * 100) : 0;
 
   const stats = [
-    { title: "Şu Anki Misafir", value: currentlyActive, icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
-    { title: "Anlık Doluluk", value: `%${occupancyRate}`, icon: TrendingUp, color: "text-green-600", bg: "bg-green-100" },
-    { title: "Bugün Gelecekler", value: checkInsToday, icon: ArrowDownToLine, color: "text-indigo-600", bg: "bg-indigo-100" },
-    { title: "Bugün Çıkacaklar", value: checkOutsToday, icon: ArrowUpFromLine, color: "text-orange-600", bg: "bg-orange-100" },
+    { title: "Tesis İçi Toplam Kişi", value: totalPeopleInside, icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
+    { title: "Dolu Ünite / Parsel", value: currentlyActiveUnits, icon: Tent, color: "text-green-600", bg: "bg-green-100" },
+    { title: "Bugün Giriş Yapacaklar", value: checkInsToday, icon: ArrowDownToLine, color: "text-indigo-600", bg: "bg-indigo-100" },
+    { title: "Bugün Çıkış Yapacaklar", value: checkOutsToday, icon: ArrowUpFromLine, color: "text-orange-600", bg: "bg-orange-100" },
   ];
 
   return (
@@ -70,7 +80,7 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+            className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-orange-200 transition-colors"
           >
             <div className={`p-3 md:p-4 rounded-xl ${stat.bg} ${stat.color} shrink-0`}>
               <stat.icon size={24} />
@@ -153,6 +163,7 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
             </div>
           </div>
         </div>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -160,7 +171,7 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-black text-gray-800 flex items-center gap-2"><Tent className="text-green-500" /> Bölge Bazlı Kapasite</h3>
-            <span className="text-xs font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full">Genel: %{occupancyRate}</span>
+            <span className="text-xs font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full">Genel Doluluk: %{occupancyRate}</span>
           </div>
           <div className="space-y-5">
             {areas.map((area: any) => {
@@ -197,7 +208,7 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
                   </div>
                   <div className="text-right flex items-center gap-3">
                     <span className="text-xs font-black text-red-600 bg-red-100 px-2 py-1 rounded-md">{m.daysLeft} Gün Kaldı</span>
-                    <button className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><ArrowRight size={16}/></button>
+                    <button onClick={() => setActiveTab && setActiveTab('members')} className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><ArrowRight size={16}/></button>
                   </div>
                 </div>
               ))
@@ -223,26 +234,31 @@ export default function TabDashboard({ members, areas, pendingCount, setActiveTa
               <thead>
                 <tr className="text-gray-400 bg-white border-b border-gray-100">
                   <th className="p-4 font-bold">İşlem Tipi</th>
-                  <th className="p-4 font-bold">Misafir / İletişim</th>
-                  <th className="p-4 font-bold">Alan Bilgisi</th>
-                  <th className="p-4 font-bold">Parsel</th>
+                  <th className="p-4 font-bold">Hesap Sahibi / İletişim</th>
+                  <th className="p-4 font-bold">Kişi Sayısı</th>
+                  <th className="p-4 font-bold">Alan / Parsel</th>
                 </tr>
               </thead>
               <tbody>
                 {todaysMovements.length > 0 ? (
-                  todaysMovements.map((m: any, idx: number) => (
-                    <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="p-4">
-                        {m.type === 'check-in' 
-                          ? <span className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded"><ArrowDownToLine size={14}/> GİRİŞ</span>
-                          : <span className="inline-flex items-center gap-1 text-xs font-black text-orange-600 bg-orange-50 px-2 py-1 rounded"><ArrowUpFromLine size={14}/> ÇIKIŞ</span>
-                        }
-                      </td>
-                      <td className="p-4 font-bold text-gray-800">{m.name} <br/><span className="text-xs font-medium text-gray-400">{m.phone}</span></td>
-                      <td className="p-4 font-bold text-gray-600">{m.category}</td>
-                      <td className="p-4 font-mono font-bold text-gray-800">{m.parcel || '-'}</td>
-                    </tr>
-                  ))
+                  todaysMovements.map((m: any, idx: number) => {
+                    const guestCount = m.guests_data ? m.guests_data.length : 1;
+                    return (
+                      <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="p-4">
+                          {m.type === 'check-in' 
+                            ? <span className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded"><ArrowDownToLine size={14}/> GİRİŞ</span>
+                            : <span className="inline-flex items-center gap-1 text-xs font-black text-orange-600 bg-orange-50 px-2 py-1 rounded"><ArrowUpFromLine size={14}/> ÇIKIŞ</span>
+                          }
+                        </td>
+                        <td className="p-4 font-bold text-gray-800">{m.name} <br/><span className="text-xs font-medium text-gray-400">{m.phone}</span></td>
+                        <td className="p-4">
+                          <span className="bg-gray-100 text-gray-600 font-bold px-2 py-1 rounded-md text-xs">{guestCount} Kişi</span>
+                        </td>
+                        <td className="p-4 font-bold text-gray-600">{m.category} <br/><span className="text-xs font-medium text-gray-400">Parsel: {m.parcel || '-'}</span></td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={4} className="p-8 text-center text-gray-400 font-medium">Bugün için planlanmış bir giriş veya çıkış işlemi bulunmuyor.</td>
