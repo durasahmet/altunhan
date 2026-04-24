@@ -10,10 +10,51 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
   const [isFull, setIsFull] = useState(false);
   const [availableSpots, setAvailableSpots] = useState<number | null>(null);
 
-  // 🚀 Maksimum Kapasiteyi Çıkar
-  const maxCapacity = data.category?.person_capacity?.match(/\d+/)
-    ? parseInt(data.category.person_capacity.match(/\d+/)[0])
-    : 99;
+  // 🚀 1. EN BÜYÜK KAPASİTEYİ BUL (Grubun desteklediği maksimum kişi sayısı)
+  const absoluteMaxCapacity = data.allOptions?.reduce((max: number, opt: any) => {
+    const cap = parseInt(opt.person_capacity?.match(/\d+/)?.[0] || "99");
+    return cap > max ? cap : max;
+  }, 0) || 99;
+
+  // 🚀 2. SİHİRLİ MOTOR: KİŞİ SAYISINA GÖRE DOĞRU FİYAT VE VARYASYONU BUL
+  useEffect(() => {
+    if (!data.allOptions || data.allOptions.length === 0) return;
+
+    const currentAdults = data.guests?.adults || 1;
+    const currentChildren = data.guests?.children || 0;
+    const totalGuests = currentAdults + currentChildren;
+
+    // Varyasyonları kişi kapasitesine göre küçükten büyüğe sırala
+    const sortedOptions = [...data.allOptions].sort((a, b) => {
+      const capA = parseInt(a.person_capacity?.match(/\d+/)?.[0] || "99");
+      const capB = parseInt(b.person_capacity?.match(/\d+/)?.[0] || "99");
+      return capA - capB;
+    });
+
+    // İhtiyacı karşılayan (veya en azından en büyük olan) varyasyonu bul
+    const matchedVariant = sortedOptions.find(opt => {
+      const cap = parseInt(opt.person_capacity?.match(/\d+/)?.[0] || "99");
+      return cap >= totalGuests;
+    }) || sortedOptions[sortedOptions.length - 1]; 
+
+    // Seçilen varyasyonun paketlerini oluştur
+    const availablePackages = [];
+    if (matchedVariant.price_daily > 0) availablePackages.push({ id: "daily", name: "Günlük", price: matchedVariant.price_daily, duration: "1 Gün" });
+    if (matchedVariant.price_3days > 0) availablePackages.push({ id: "3days", name: "3 Günlük", price: matchedVariant.price_3days, duration: "3 Gün" });
+    if (matchedVariant.price_weekly > 0) availablePackages.push({ id: "weekly", name: "Haftalık", price: matchedVariant.price_weekly, duration: "7 Gün" });
+    if (matchedVariant.price_monthly > 0) availablePackages.push({ id: "monthly", name: "Aylık", price: matchedVariant.price_monthly, duration: "30 Gün" });
+    if (matchedVariant.price_6months > 0) availablePackages.push({ id: "6months", name: "6 Aylık", price: matchedVariant.price_6months, duration: "180 Gün" });
+    if (matchedVariant.price_yearly > 0) availablePackages.push({ id: "yearly", name: "Yıllık", price: matchedVariant.price_yearly, duration: "365 Gün" });
+
+    // Sadece varyasyon değiştiyse data'yı güncelle (Sonsuz döngüyü engelle)
+    if (data.category?.id !== matchedVariant.id) {
+       setData({
+         ...data,
+         category: { ...matchedVariant, packages: availablePackages },
+         package: null // Kapasite (dolayısıyla fiyat) değişirse seçili paketi sıfırla
+       });
+    }
+  }, [data.guests, data.allOptions]);
 
   const calculateEndDate = () => {
     if (!data.startDate || !data.package) return null;
@@ -33,7 +74,6 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
     setData({ ...data, package: pkg });
   };
 
-  // 🚀 YENİ MOTOR: YETİŞKİN + ÇOCUK TOPLAMINI DİREKT HESAPLA
   const updateGuests = (type: 'adults' | 'children', operation: 'plus' | 'minus') => {
     const currentAdults = data.guests?.adults || 1;
     const currentChildren = data.guests?.children || 0;
@@ -49,12 +89,10 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
       if (operation === 'minus' && newChildren > 0) newChildren--;
     }
 
-    // 🚀 SİHİRLİ FORMÜL: Sadece topla! (Yetişkin + Çocuk)
     const totalGuests = newAdults + newChildren;
 
-    // Toplam kişi sayısı seçilen karavan kapasitesini aşamaz!
-    if (totalGuests > maxCapacity) {
-      alert(`Seçtiğiniz ${data.category?.name} ünitesi maksimum ${maxCapacity} kişi (Yetişkin + Çocuk) kapasitelidir. Lütfen kişi sayısını azaltın veya bir önceki adıma dönerek daha büyük bir karavan seçin.`);
+    if (totalGuests > absoluteMaxCapacity) {
+      alert(`Seçtiğiniz ${data.categoryGroup} kategorisi maksimum ${absoluteMaxCapacity} kişi kapasitelidir.`);
       return;
     }
 
@@ -72,7 +110,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
       setIsChecking(true);
       setIsFull(false);
 
-      const targetArea = data.category.name;
+      const targetVariantId = data.category.id;
       const totalCapacity = data.category.capacity - (data.category.maintenance_count || 0);
 
       const reqStart = new Date(data.startDate);
@@ -86,10 +124,11 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
       reqStart.setHours(0,0,0,0);
       reqEnd.setHours(0,0,0,0);
 
+      // Varyasyona özel (area_variant_id) rezervasyonları çek
       const { data: existingReservations, error } = await supabase
         .from('reservations')
         .select('*')
-        .eq('category', targetArea)
+        .eq('area_variant_id', targetVariantId)
         .eq('status', 'approved'); 
 
       if (error) {
@@ -131,11 +170,52 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
       
       <div className="text-center">
         <h2 className="text-3xl font-black tracking-tight" style={{ color: 'var(--color-brand-green)' }}>Tarih ve Süre</h2>
-        <p className="text-gray-500 font-medium mt-2">Konaklama detaylarınızı ve kişi sayısını belirleyin.</p>
+        <p className="text-gray-500 font-medium mt-2">{data.categoryGroup} için detaylarınızı belirleyin.</p>
       </div>
 
       <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 space-y-6">
         
+        {/* KİŞİ SAYISI SEÇİMİ (Fiyatı ve Varyasyonu Belirler) */}
+        <div>
+          <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+            <Users className="text-orange-500" size={18} /> Konaklayacak Kişiler
+          </label>
+          <div className="bg-white p-2 sm:p-4 rounded-xl border-2 border-gray-200 shadow-sm flex flex-col gap-2">
+            <div className="flex justify-between items-center p-2">
+              <div>
+                <p className="font-bold text-gray-800">Yetişkin</p>
+                <p className="text-[10px] text-gray-400">12 yaş ve üzeri</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <button onClick={() => updateGuests('adults', 'minus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">-</button>
+                <span className="font-black text-lg w-4 text-center">{data.guests?.adults || 1}</span>
+                <button onClick={() => updateGuests('adults', 'plus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">+</button>
+              </div>
+            </div>
+            <div className="h-px w-full bg-gray-100"></div>
+            <div className="flex justify-between items-center p-2">
+              <div>
+                <p className="font-bold text-gray-800">Çocuk</p>
+                <p className="text-[10px] text-gray-400">0-11 yaş</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <button onClick={() => updateGuests('children', 'minus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">-</button>
+                <span className="font-black text-lg w-4 text-center">{data.guests?.children || 0}</span>
+                <button onClick={() => updateGuests('children', 'plus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">+</button>
+              </div>
+            </div>
+          </div>
+          
+          {data.category && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2">
+              <CheckCircle2 className="text-blue-500 shrink-0" size={16} />
+              <p className="text-xs font-bold text-blue-800">
+                Kişi sayınıza en uygun ünite eşleştirildi: <span className="font-black underline">{data.category.name} ({data.category.person_capacity})</span>
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* BAŞLANGIÇ TARİHİ SEÇİMİ */}
         <div>
           <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
@@ -150,48 +230,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           />
         </div>
 
-        {/* KİŞİ SAYISI SEÇİMİ (OPERASYONEL) */}
-        <div>
-          <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-            <Users className="text-orange-500" size={18} /> Konaklayacak Kişiler
-          </label>
-          <div className="bg-white p-2 sm:p-4 rounded-xl border-2 border-gray-200 shadow-sm flex flex-col gap-2">
-            
-            <div className="flex justify-between items-center p-2">
-              <div>
-                <p className="font-bold text-gray-800">Yetişkin</p>
-                <p className="text-[10px] text-gray-400">12 yaş ve üzeri</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <button onClick={() => updateGuests('adults', 'minus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">-</button>
-                <span className="font-black text-lg w-4 text-center">{data.guests?.adults || 1}</span>
-                <button onClick={() => updateGuests('adults', 'plus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">+</button>
-              </div>
-            </div>
-
-            <div className="h-px w-full bg-gray-100"></div>
-
-            <div className="flex justify-between items-center p-2">
-              <div>
-                <p className="font-bold text-gray-800">Çocuk</p>
-                <p className="text-[10px] text-gray-400">0-11 yaş</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <button onClick={() => updateGuests('children', 'minus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">-</button>
-                <span className="font-black text-lg w-4 text-center">{data.guests?.children || 0}</span>
-                <button onClick={() => updateGuests('children', 'plus')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-600 hover:bg-gray-200 transition-colors">+</button>
-              </div>
-            </div>
-
-          </div>
-          {maxCapacity < 99 && (
-            <p className="text-[10px] font-bold text-orange-600 mt-2 text-right">
-              * Seçtiğiniz alan maksimum {maxCapacity} kişi (yetişkin + çocuk) kapasitelidir.
-            </p>
-          )}
-        </div>
-
-        {/* PAKET SEÇİMİ */}
+        {/* PAKET SEÇİMİ VE DİNAMİK FİYATLAR */}
         <div>
           <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
             <Clock className="text-orange-500" size={18} /> Konaklama Süresi
@@ -218,7 +257,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
                     )}
                     <p className={`font-black ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{pkg.name}</p>
                     <p className="text-xs font-bold text-gray-400 mt-1">{pkg.duration}</p>
-                    <p className="text-sm font-bold text-green-600 mt-2">{pkg.price.toLocaleString('tr-TR')} ₺</p>
+                    <p className="text-sm font-black text-green-600 mt-2">{pkg.price.toLocaleString('tr-TR')} ₺</p>
                   </button>
                 )
               })}
@@ -226,7 +265,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           ) : (
             <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 flex items-center gap-3">
               <AlertTriangle className="text-orange-500" size={24} />
-              <p className="text-sm font-bold text-orange-800">Bu alan için henüz bir fiyat paketi tanımlanmamış. Lütfen yönetici ile iletişime geçin.</p>
+              <p className="text-sm font-bold text-orange-800">Bu alan/kişi kapasitesi için henüz bir fiyat paketi tanımlanmamış.</p>
             </div>
           )}
         </div>
@@ -255,13 +294,13 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
                  <AlertTriangle className="text-red-500 mt-0.5 shrink-0" size={24} />
                  <div>
                     <h4 className="font-black text-red-800 mb-1">Seçilen Tarihler Dolu</h4>
-                    <p className="text-sm font-medium text-red-700">Maalesef seçtiğiniz tarihler arasında <strong>{data.category.name}</strong> alanımız tamamen doludur. Lütfen farklı tarihler seçin veya bir önceki adıma dönerek farklı bir konaklama alanı seçin.</p>
+                    <p className="text-sm font-medium text-red-700">Maalesef seçtiğiniz tarihler arasında <strong>{data.category.name} ({data.category.person_capacity})</strong> alanımız tamamen doludur.</p>
                  </div>
                </div>
             ) : (
                <div className="bg-green-50 p-4 rounded-xl border border-green-200 flex items-center gap-3">
                  <CheckCircle2 className="text-green-600 shrink-0" size={24} />
-                 <p className="text-sm font-bold text-green-800">Seçtiğiniz tarihlerde bu alanda <strong>{availableSpots} müsait yerimiz</strong> bulunuyor.</p>
+                 <p className="text-sm font-bold text-green-800">Seçtiğiniz tarihlerde bu üniteden <strong>{availableSpots} müsait yerimiz</strong> bulunuyor.</p>
                </div>
             )}
 

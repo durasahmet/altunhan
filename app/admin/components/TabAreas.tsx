@@ -85,8 +85,7 @@ function VariantEditor({
 
   const handleAdd = () => {
     onAddVariant();
-    // Yeni eklenen son item'e geç
-    setActiveIdx(variants.length); // variants henüz güncellenmedi, yeni idx = current length
+    setActiveIdx(variants.length); 
   };
 
   const handleRemove = (idx: number) => {
@@ -110,9 +109,9 @@ function VariantEditor({
       </div>
 
       {/* Ana İki Sütun */}
-      <div className="flex gap-3 min-h-[320px]">
+      <div className="flex gap-3 min-h-[320px] flex-col sm:flex-row">
         {/* Sol: Kategori Listesi */}
-        <div className="w-44 shrink-0 flex flex-col gap-1.5">
+        <div className="w-full sm:w-44 shrink-0 flex flex-col gap-1.5">
           {variants.map((v, idx) => (
             <button
               key={idx}
@@ -127,14 +126,14 @@ function VariantEditor({
               <span className="truncate flex-1">{v.person_capacity}</span>
               {idx === safeIdx && <Check size={13} className="shrink-0" />}
 
-              {/* Sil butonu - sadece hover ve birden fazla variant varsa */}
+              {/* Sil butonu */}
               {variants.length > 1 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
                   className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all
                     ${idx === safeIdx
-                      ? "bg-red-500 text-white opacity-0 group-hover:opacity-100"
-                      : "bg-red-100 text-red-500 opacity-0 group-hover:opacity-100"
+                      ? "bg-red-500 text-white sm:opacity-0 sm:group-hover:opacity-100"
+                      : "bg-red-100 text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
                     }`}
                 >
                   <X size={10} />
@@ -384,7 +383,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     else alert("Silinirken hata: " + error.message);
   };
 
-  // ─── BAKIM ───────────────────────────────────────────────────────────────────
+  // ─── BAKIM (Sadece Varyant İçin Çalışır) ────────────────────────────────────
   const handleMaintenance = async (variant: AreaVariant) => {
     const input = window.prompt(
       `${variant.person_capacity} için bakımdaki parsel sayısını girin (0 = aktif):`,
@@ -431,140 +430,170 @@ export default function TabAreas({ areas }: { areas: any[] }) {
 
       {/* Alan Listesi */}
       <div className="grid grid-cols-1 gap-4">
-        {areaList.map((area) => (
-          <div
-            key={area.id}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:border-orange-200"
-          >
-            {/* Alan Başlığı */}
-            <div className="p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() =>
-                    setAreaList(
-                      areaList.map((a) =>
-                        a.id === area.id ? { ...a, isOpen: !a.isOpen } : a
-                      )
-                    )
-                  }
-                  className="p-2 rounded-xl bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors"
-                >
-                  {area.isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                      <Tag size={10} /> {area.main_category}
-                    </span>
-                    <h3 className="font-black text-xl text-gray-800">{area.name}</h3>
+        {areaList.map((area) => {
+          // 🚀 YENİ EKLENDİ: Ana Kart için Toplamları Hesapla
+          const totalCapacity = area.variants?.reduce((acc, v) => acc + v.capacity, 0) || 0;
+          const totalOccupied = area.variants?.reduce((acc, v) => acc + v.occupied, 0) || 0;
+          const totalMaintenance = area.variants?.reduce((acc, v) => acc + v.maintenance_count, 0) || 0;
+          const activeCapacity = totalCapacity - totalMaintenance;
+
+          return (
+            <div
+              key={area.id}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:border-orange-200"
+            >
+              {/* Ana Kart Başlığı (ÖZET GÖRÜNÜM) */}
+              <div className="p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div className="flex-1 w-full lg:w-auto">
+                  <div className="flex items-center gap-3 mb-2">
+                    <button
+                      onClick={() =>
+                        setAreaList(
+                          areaList.map((a) =>
+                            a.id === area.id ? { ...a, isOpen: !a.isOpen } : a
+                          )
+                        )
+                      }
+                      className="p-2 rounded-xl bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors"
+                    >
+                      {area.isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                          <Tag size={10} /> {area.main_category}
+                        </span>
+                        <h3 className="font-black text-xl text-gray-800">{area.name}</h3>
+                      </div>
+                      <p className="text-sm text-gray-400 flex items-center gap-1">
+                        <Layers size={12} />
+                        {area.variants?.length || 0} kapasite kategorisi
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-400 flex items-center gap-1">
-                    <Layers size={12} />
-                    {area.variants?.length || 0} kapasite kategorisi
-                  </p>
+
+                  {/* Toplam Barlar */}
+                  <div className="pl-11 mt-3">
+                    <div className="flex justify-between items-center text-sm mb-1">
+                      <span className="text-gray-500">
+                        Genel Doluluk Durumu: <strong className="text-gray-800">{totalOccupied} / {activeCapacity}</strong> Dolu
+                      </span>
+                      {totalMaintenance > 0 && (
+                        <span className="text-xs font-bold text-red-500 flex items-center gap-1">
+                          <Wrench size={12} /> {totalMaintenance} Bakımda
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-full max-w-md bg-gray-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-blue-500 h-full transition-all"
+                        style={{ width: `${activeCapacity > 0 ? (totalOccupied / activeCapacity) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(area)}
+                    className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors"
+                  >
+                    <Settings size={16} /> Düzenle
+                  </button>
+                  <button
+                    onClick={() => handleDelete(area.id)}
+                    className="px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-100"
+                  >
+                    <X size={16} /> Sil
+                  </button>
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(area)}
-                  className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors"
-                >
-                  <Settings size={16} /> Düzenle
-                </button>
-                <button
-                  onClick={() => handleDelete(area.id)}
-                  className="px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-100"
-                >
-                  <X size={16} /> Sil
-                </button>
-              </div>
-            </div>
-
-            {/* Varyantlar (Accordion) */}
-            <AnimatePresence>
-              {area.isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className="overflow-hidden"
-                >
-                  <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-3">
-                    {area.variants && area.variants.length > 0 ? (
-                      area.variants.map((v) => {
-                        const active = v.capacity - (v.maintenance_count || 0);
-                        const fill = active > 0 ? (v.occupied / active) * 100 : 0;
-                        return (
-                          <div
-                            key={v.id}
-                            className="bg-white p-4 rounded-xl border border-gray-100 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between"
-                          >
-                            <div className="flex-1 w-full">
-                              <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                                  <Users size={10} /> {v.person_capacity}
-                                </span>
-                                {v.maintenance_count > 0 && (
-                                  <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                                    <Wrench size={11} /> {v.maintenance_count} Bakımda
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-500 mb-1">
-                                Kapasite:{" "}
-                                <span className="font-bold text-gray-800">
-                                  {v.occupied} / {active}
-                                </span>{" "}
-                                dolu (toplam: {v.capacity})
-                              </p>
-                              <div className="w-full max-w-xs bg-gray-100 h-1.5 rounded-full overflow-hidden mb-3">
-                                <div
-                                  className="bg-blue-500 h-full transition-all"
-                                  style={{ width: `${fill}%` }}
-                                />
-                              </div>
-                              <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                                {PRICE_LABELS.map(
-                                  ({ label, key }) =>
-                                    (v as any)[key] > 0 && (
-                                      <span
-                                        key={key}
-                                        className="bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100 flex items-center gap-1"
-                                      >
-                                        <CreditCard size={10} /> {label}:{" "}
-                                        {(v as any)[key]}₺
-                                      </span>
-                                    )
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleMaintenance(v)}
-                              className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
-                                v.maintenance_count > 0
-                                  ? "bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100"
-                                  : "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
-                              }`}
+              {/* Varyantlar Detayları (Açılır Menü) */}
+              <AnimatePresence>
+                {area.isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-3">
+                      {area.variants && area.variants.length > 0 ? (
+                        area.variants.map((v) => {
+                          const active = v.capacity - (v.maintenance_count || 0);
+                          const fill = active > 0 ? (v.occupied / active) * 100 : 0;
+                          return (
+                            <div
+                              key={v.id}
+                              className="bg-white p-4 rounded-xl border border-gray-100 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between"
                             >
-                              <Wrench size={15} />
-                              {v.maintenance_count > 0 ? "Bakımı Güncelle" : "Bakıma Al"}
-                            </button>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-center text-gray-400 text-sm py-4">
-                        Henüz kategori eklenmedi. Düzenle butonuna tıklayın.
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        ))}
+                              <div className="flex-1 w-full">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                                    <Users size={10} /> {v.person_capacity}
+                                  </span>
+                                  {v.maintenance_count > 0 && (
+                                    <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                      <Wrench size={11} /> {v.maintenance_count} Bakımda
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Kapasite:{" "}
+                                  <span className="font-bold text-gray-800">
+                                    {v.occupied} / {active}
+                                  </span>{" "}
+                                  dolu (toplam: {v.capacity})
+                                </p>
+                                <div className="w-full max-w-xs bg-gray-100 h-1.5 rounded-full overflow-hidden mb-3">
+                                  <div
+                                    className="bg-blue-500 h-full transition-all"
+                                    style={{ width: `${fill}%` }}
+                                  />
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                                  {PRICE_LABELS.map(
+                                    ({ label, key }) =>
+                                      (v as any)[key] > 0 && (
+                                        <span
+                                          key={key}
+                                          className="bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100 flex items-center gap-1"
+                                        >
+                                          <CreditCard size={10} /> {label}:{" "}
+                                          {(v as any)[key]}₺
+                                        </span>
+                                      )
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleMaintenance(v)}
+                                className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
+                                  v.maintenance_count > 0
+                                    ? "bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100"
+                                    : "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
+                                }`}
+                              >
+                                <Wrench size={15} />
+                                {v.maintenance_count > 0 ? "Bakımı Güncelle" : "Bakıma Al"}
+                              </button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-center text-gray-400 text-sm py-4">
+                          Henüz kategori eklenmedi. Düzenle butonuna tıklayın.
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
 
       {/* ─── MODAL ─────────────────────────────────────────────────────────────── */}
