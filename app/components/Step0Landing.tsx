@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Waves, Tent, Truck, Coffee, Droplet, Flame, Users, Heart, Car, ShieldCheck, Video, Activity, Sparkles, MapPin, PhoneCall, CheckCircle2, X } from "lucide-react";
+import { supabase } from "../../lib/supabase"; // 🚀 SUPABASE EKLENDİ
 
 export default function Step0Landing({ onStart }: { onStart: () => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,23 +16,27 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
     guest_count: "2 Kişi"
   });
 
-  // 🚀 ŞİMDİLİK SADECE GÖRSEL (FRONTEND) SİMÜLASYONU
-  const handleSubmit = (e: React.FormEvent) => {
+  // 🚀 GERÇEK BACKEND BAĞLANTISI
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Backend'e gidiyormuş gibi 1 saniye bekle
-    setTimeout(() => {
-      setIsSubmitting(false);
+    const { error } = await supabase
+      .from('contact_requests')
+      .insert([{ ...formData, status: 'new' }]);
+
+    setIsSubmitting(false);
+
+    if (!error) {
       setIsSuccess(true);
-      
-      // 3 saniye sonra formu kapat ve sıfırla
       setTimeout(() => {
         setIsModalOpen(false);
         setIsSuccess(false);
         setFormData({ name: "", phone: "", category: "Karavan Kiralama", guest_count: "2 Kişi" });
       }, 3000);
-    }, 1000);
+    } else {
+      alert("Gönderim başarısız: " + error.message);
+    }
   };
 
   const features = [
@@ -63,7 +68,6 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
     >
       {/* HERO SECTION (GİRİŞ ALANI) */}
       <div className="relative w-full h-[60vh] min-h-[400px] flex flex-col items-center justify-center text-center p-6 overflow-hidden bg-gray-900">
-        {/* Arka Plan Görseli */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50"
           style={{ backgroundImage: "url('/Render.jpg')" }}
@@ -83,7 +87,6 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
             Denize sadece 200 metre mesafede, ailenizle huzur ve güven içinde vakit geçirebileceğiniz donanımlı çadır ve karavan alanları.
           </p>
           
-          {/* 🚀 YENİ: İLETİŞİM FORMU BUTONU */}
           <button 
             onClick={() => setIsModalOpen(true)}
             className="group relative px-8 py-4 bg-orange-500 text-white rounded-full font-black text-lg overflow-hidden shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-all hover:scale-105 hover:bg-orange-600 flex items-center gap-3"
@@ -142,7 +145,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
         </motion.div>
       </div>
 
-      {/* 🚀 İLETİŞİM FORMU MODALI */}
+      {/* İLETİŞİM FORMU MODALI */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -206,7 +209,6 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
           </div>
         )}
       </AnimatePresence>
-
     </motion.div>
   );
 }

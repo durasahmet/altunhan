@@ -1,5 +1,5 @@
 "use client";
-import { LayoutDashboard, Users, Map, ScanLine, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Map, ScanLine, LogOut, PhoneCall } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function AdminSidebar({ activeTab, setActiveTab, pendingCount }: any) {
@@ -30,6 +30,12 @@ export default function AdminSidebar({ activeTab, setActiveTab, pendingCount }: 
           <LayoutDashboard size={20} className="mb-0.5 md:mb-0" />
           <span className="text-[10px] md:text-sm">Metrikler</span>
         </button>
+
+        {/* 🚀 YENİ EKLENEN: GELEN TALEPLER BUTONU */}
+        <button onClick={() => setActiveTab("leads")} className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl font-bold transition-all flex-1 md:flex-none ${activeTab === "leads" ? "bg-orange-50 text-orange-700" : "text-gray-500 hover:bg-gray-50"}`}>
+          <PhoneCall size={20} className="mb-0.5 md:mb-0" />
+          <span className="text-[10px] md:text-sm">Talepler</span>
+        </button>
         
         <button onClick={() => setActiveTab("members")} className={`relative flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl font-bold transition-all flex-1 md:flex-none ${activeTab === "members" ? "bg-green-50 text-green-700" : "text-gray-500 hover:bg-gray-50"}`}>
           <div className="relative">
@@ -52,7 +58,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, pendingCount }: 
           <span className="text-[10px] md:text-sm">Alanlar</span>
         </button>
         
-        <button onClick={() => setActiveTab("gate")} className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl font-bold transition-all flex-1 md:flex-none ${activeTab === "gate" ? "bg-orange-50 text-orange-700" : "text-gray-500 hover:bg-gray-50"}`}>
+        <button onClick={() => setActiveTab("gate")} className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl font-bold transition-all flex-1 md:flex-none ${activeTab === "gate" ? "bg-indigo-50 text-indigo-700" : "text-gray-500 hover:bg-gray-50"}`}>
           <ScanLine size={20} className="mb-0.5 md:mb-0" />
           <span className="text-[10px] md:text-sm">Kapı (QR)</span>
         </button>
