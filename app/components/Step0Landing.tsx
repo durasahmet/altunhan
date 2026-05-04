@@ -1,8 +1,39 @@
 "use client";
-import { motion } from "framer-motion";
-import { ArrowRight, Waves, Tent, Truck, Coffee, Droplet, Flame, Users, Heart, Car, ShieldCheck, Video, Activity, Sparkles, MapPin } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Waves, Tent, Truck, Coffee, Droplet, Flame, Users, Heart, Car, ShieldCheck, Video, Activity, Sparkles, MapPin, PhoneCall, CheckCircle2, X } from "lucide-react";
 
 export default function Step0Landing({ onStart }: { onStart: () => void }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    category: "Karavan Kiralama",
+    guest_count: "2 Kişi"
+  });
+
+  // 🚀 ŞİMDİLİK SADECE GÖRSEL (FRONTEND) SİMÜLASYONU
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Backend'e gidiyormuş gibi 1 saniye bekle
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsSuccess(true);
+      
+      // 3 saniye sonra formu kapat ve sıfırla
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setIsSuccess(false);
+        setFormData({ name: "", phone: "", category: "Karavan Kiralama", guest_count: "2 Kişi" });
+      }, 3000);
+    }, 1000);
+  };
+
   const features = [
     { icon: Waves, text: "Denize ve Plajlara 200 Metre" },
     { icon: Tent, text: "Kamp & Çadır Alanları" },
@@ -28,7 +59,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }} 
-      className="flex flex-col min-h-screen bg-gray-50 -mx-4 sm:-mx-6 -mt-6" // Container marginlerini sıfırlamak için
+      className="flex flex-col min-h-screen bg-gray-50 -mx-4 sm:-mx-6 -mt-6 relative" 
     >
       {/* HERO SECTION (GİRİŞ ALANI) */}
       <div className="relative w-full h-[60vh] min-h-[400px] flex flex-col items-center justify-center text-center p-6 overflow-hidden bg-gray-900">
@@ -52,13 +83,12 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
             Denize sadece 200 metre mesafede, ailenizle huzur ve güven içinde vakit geçirebileceğiniz donanımlı çadır ve karavan alanları.
           </p>
           
-          {/* REZERVASYON BUTONU (1. Adıma Geçirir) */}
+          {/* 🚀 YENİ: İLETİŞİM FORMU BUTONU */}
           <button 
-            onClick={onStart}
+            onClick={() => setIsModalOpen(true)}
             className="group relative px-8 py-4 bg-orange-500 text-white rounded-full font-black text-lg overflow-hidden shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-all hover:scale-105 hover:bg-orange-600 flex items-center gap-3"
           >
-            Hemen Rezervasyon Yap
-            <ArrowRight className="transition-transform group-hover:translate-x-1" size={24} />
+            <PhoneCall size={24} /> Bizi Arayın, Yerinizi Ayıralım
           </button>
         </div>
       </div>
@@ -111,6 +141,71 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
           </div>
         </motion.div>
       </div>
+
+      {/* 🚀 İLETİŞİM FORMU MODALI */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {isSuccess ? (
+                <div className="p-10 flex flex-col items-center text-center">
+                  <CheckCircle2 size={64} className="text-green-500 mb-4" />
+                  <h3 className="text-2xl font-black text-gray-800 mb-2">Talebiniz Alındı!</h3>
+                  <p className="text-gray-500 font-medium">Ekibimiz en kısa sürede sizinle iletişime geçecektir.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                      <PhoneCall className="text-orange-500" size={20} /> İletişim Formu
+                    </h3>
+                    <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                      <X size={24} />
+                    </button>
+                  </div>
+                  <form onSubmit={handleSubmit} className="p-6 space-y-4 text-left">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Adınız Soyadınız</label>
+                      <input required type="text" placeholder="Örn: Ahmet Yılmaz" className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Telefon Numaranız</label>
+                      <input required type="tel" placeholder="05XX XXX XX XX" className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">İlgi Alanınız</label>
+                        <select className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 bg-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                          <option>Karavan Kiralama</option>
+                          <option>Çadır / Parsel Alanı</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Kişi Sayısı</label>
+                        <select className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 bg-white" value={formData.guest_count} onChange={e => setFormData({...formData, guest_count: e.target.value})}>
+                          <option>1 Kişi</option>
+                          <option>2 Kişi</option>
+                          <option>3 Kişi</option>
+                          <option>4 Kişi</option>
+                          <option>5+ Kişi</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button disabled={isSubmitting} type="submit" className="w-full mt-4 py-4 bg-orange-500 text-white rounded-xl font-black text-lg hover:bg-orange-600 transition-colors disabled:opacity-50">
+                      {isSubmitting ? "Gönderiliyor..." : "Beni Arayın"}
+                    </button>
+                  </form>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </motion.div>
   );

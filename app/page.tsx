@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "./components/Header";
 import ProgressBar from "./components/ProgressBar";
@@ -29,6 +29,17 @@ export default function Home() {
     parcel: "",
     customer: { name: "", phone: "", tc: "", plate: "", email: "", password: "", guestsList: [] } 
   });
+
+  // 🚀 GİZLİ LİNK KONTROLÜ (SATIŞ KAPATILAN MÜŞTERİLER İÇİN)
+  useEffect(() => {
+    // Sayfa yüklendiğinde URL'de "?rezervasyon=1" var mı diye bakar
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('rezervasyon') === '1') {
+        setStep(1); // Formu atla, doğrudan rezervasyon ekranına geç!
+      }
+    }
+  }, []);
 
   const handleLoginSuccess = (type: string) => {
     setAuthState({ isLoggedIn: true, userType: type });
