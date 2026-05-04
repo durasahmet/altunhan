@@ -80,19 +80,6 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
     return acc;
   }, {} as Record<string, any>);
 
-  // 🚀 TYPESCRIPT FIX: Record<string, number> eklendi
-  const totalGroups = dbVariants.reduce((acc: Record<string, number>, v: any) => {
-    const cat = v.main_category || "Diğer";
-    if (!acc[cat]) acc[cat] = 0;
-    acc[cat] += (v.capacity - (v.maintenance_count || 0));
-    return acc;
-  }, {} as Record<string, number>);
-
-  const categoryTotals = Object.keys(totalGroups).map(mainCat => ({
-    mainCat,
-    total: totalGroups[mainCat]
-  }));
-
   return (
     <motion.div variants={slideVariants} initial="hiddenRight" animate="visible" exit="exit" className="space-y-8">
       
@@ -131,25 +118,6 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
       ) : (
         <div className="space-y-8">
           
-          {/* TOPLAM KAPASİTE ÖZET KARTLARI */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {categoryTotals.map((cat, idx) => (
-              <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-orange-200 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${cat.mainCat === 'Karavan Kiralama' ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
-                    {cat.mainCat === 'Karavan Kiralama' ? <Truck size={24} /> : <Tent size={24} />}
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">TOPLAM {cat.mainCat}</p>
-                    <p className="text-2xl font-black text-gray-800 leading-tight">
-                      {cat.total} <span className="text-sm font-bold text-gray-400">{cat.mainCat === 'Karavan Kiralama' ? 'Ürün' : 'Parsel'}</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
           {Object.keys(finalGroups).length === 0 && (
             <div className="bg-orange-50 p-6 rounded-2xl text-center border border-orange-100">
               <p className="font-bold text-orange-800">Seçtiğiniz kişi sayısına uygun bir ünite bulunamadı.</p>

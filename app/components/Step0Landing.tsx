@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Waves, Tent, Truck, Coffee, Droplet, Flame, Users, Heart, Car, ShieldCheck, Video, Activity, Sparkles, MapPin, PhoneCall, CheckCircle2, X } from "lucide-react";
-import { supabase } from "../../lib/supabase"; // 🚀 SUPABASE EKLENDİ
+import { supabase } from "../../lib/supabase"; 
 
 export default function Step0Landing({ onStart }: { onStart: () => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,7 +16,6 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
     guest_count: "2 Kişi"
   });
 
-  // 🚀 GERÇEK BACKEND BAĞLANTISI
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -67,7 +66,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
       className="flex flex-col min-h-screen bg-gray-50 -mx-4 sm:-mx-6 -mt-6 relative" 
     >
       {/* HERO SECTION (GİRİŞ ALANI) */}
-      <div className="relative w-full h-[60vh] min-h-[400px] flex flex-col items-center justify-center text-center p-6 overflow-hidden bg-gray-900">
+      <div className="relative w-full h-[60vh] min-h-[450px] flex flex-col items-center justify-center text-center p-6 overflow-hidden bg-gray-900">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50"
           style={{ backgroundImage: "url('/Render.jpg')" }}
@@ -87,12 +86,25 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
             Denize sadece 200 metre mesafede, ailenizle huzur ve güven içinde vakit geçirebileceğiniz donanımlı çadır ve karavan alanları.
           </p>
           
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="group relative px-8 py-4 bg-orange-500 text-white rounded-full font-black text-lg overflow-hidden shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-all hover:scale-105 hover:bg-orange-600 flex items-center gap-3"
-          >
-            <PhoneCall size={24} /> Bizi Arayın, Yerinizi Ayıralım
-          </button>
+          {/* 🚀 BUTONLAR: İKİ SEÇENEK YAN YANA */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
+            {/* ANA BUTON: Direkt Rezervasyon */}
+            <button 
+              onClick={onStart}
+              className="w-full sm:w-auto group relative px-8 py-4 bg-orange-500 text-white rounded-full font-black text-lg overflow-hidden shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-all hover:scale-105 hover:bg-orange-600 flex items-center justify-center gap-3"
+            >
+              Hemen Rezervasyon Yap
+              <ArrowRight className="transition-transform group-hover:translate-x-1" size={24} />
+            </button>
+            
+            {/* İKİNCİL BUTON: Ön Talep / Bizi Arayın */}
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="w-full sm:w-auto px-8 py-4 bg-white/10 backdrop-blur-md border border-white/30 text-white rounded-full font-black text-lg transition-all hover:bg-white/20 flex items-center justify-center gap-3"
+            >
+              <PhoneCall size={22} className="text-orange-400" /> Detaylı Bilgi & Ön Talep
+            </button>
+          </div>
         </div>
       </div>
 
