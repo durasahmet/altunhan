@@ -13,7 +13,8 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
     name: "",
     phone: "",
     category: "Karavan Kiralama",
-    guest_count: "2 Kişi"
+    guest_count: "2 Kişi",
+    message: "" // 🚀 YENİ EKLENDİ: Mesaj alanı state'i
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +32,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
       setTimeout(() => {
         setIsModalOpen(false);
         setIsSuccess(false);
-        setFormData({ name: "", phone: "", category: "Karavan Kiralama", guest_count: "2 Kişi" });
+        setFormData({ name: "", phone: "", category: "Karavan Kiralama", guest_count: "2 Kişi", message: "" });
       }, 3000);
     } else {
       alert("Gönderim başarısız: " + error.message);
@@ -86,7 +87,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
             Denize sadece 200 metre mesafede, ailenizle huzur ve güven içinde vakit geçirebileceğiniz donanımlı çadır ve karavan alanları.
           </p>
           
-          {/* 🚀 BUTONLAR: İKİ SEÇENEK YAN YANA */}
+          {/* BUTONLAR: İKİ SEÇENEK YAN YANA */}
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
             {/* ANA BUTON: Direkt Rezervasyon */}
             <button 
@@ -160,12 +161,12 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
       {/* İLETİŞİM FORMU MODALI */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden my-auto"
             >
               {isSuccess ? (
                 <div className="p-10 flex flex-col items-center text-center">
@@ -211,7 +212,19 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
                         </select>
                       </div>
                     </div>
-                    <button disabled={isSubmitting} type="submit" className="w-full mt-4 py-4 bg-orange-500 text-white rounded-xl font-black text-lg hover:bg-orange-600 transition-colors disabled:opacity-50">
+                    
+                    {/* 🚀 YENİ EKLENDİ: Notlar Alanı */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Eklemek İstedikleriniz (Notlar)</label>
+                      <textarea 
+                        placeholder="Lütfen yazılı olarak talebinizi veya sorularınızı belirtiniz..." 
+                        className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 resize-none h-24" 
+                        value={formData.message} 
+                        onChange={e => setFormData({...formData, message: e.target.value})} 
+                      />
+                    </div>
+
+                    <button disabled={isSubmitting} type="submit" className="w-full mt-2 py-4 bg-orange-500 text-white rounded-xl font-black text-lg hover:bg-orange-600 transition-colors disabled:opacity-50">
                       {isSubmitting ? "Gönderiliyor..." : "Beni Arayın"}
                     </button>
                   </form>
