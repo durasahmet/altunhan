@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Search, Check, X, User, Phone, MapPin, Calendar, CreditCard, ShieldCheck, Edit2, Clock, CalendarDays, Users } from "lucide-react";
+import { AlertTriangle, Search, Check, X, User, Phone, MapPin, Calendar, CreditCard, ShieldCheck, Edit2, Clock, CalendarDays, Users, QrCode } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function TabMembers({ pending, members, onApprove, onUpdateMember, onDeleteMember }: any) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,6 +103,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
               <tr className="text-gray-400 bg-gray-50 border-b border-gray-100">
+                <th className="p-4">Rez. ID</th>
                 <th className="p-4">Müşteri</th>
                 <th className="p-4">Bölge / Parsel</th>
                 <th className="p-4">Kişi Sayısı</th>
@@ -113,6 +115,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                 const guestCount = req.guests_data ? req.guests_data.length : 1;
                 return (
                   <tr key={req.id} className="border-b border-gray-50 hover:bg-orange-50/50 transition-colors">
+                    <td className="p-4 font-mono font-bold text-gray-500">{req.id}</td>
                     <td className="p-4 font-bold text-gray-800">{req.name} <br/><span className="text-xs text-gray-400 font-normal">{req.phone}</span></td>
                     <td className="p-4"><span className="font-bold text-gray-700">{req.category}</span><br/><span className="text-xs text-gray-500">{req.parcel}</span></td>
                     <td className="p-4">
@@ -126,7 +129,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                   </tr>
                 );
               })}
-              {pending.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-gray-400">Bekleyen talep yok.</td></tr>}
+              {pending.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400">Bekleyen talep yok.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -140,7 +143,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input 
               type="text" 
-              placeholder="İsim ara..." 
+              placeholder="İsim veya ID ara..." 
               className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-green-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -151,7 +154,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
           <table className="w-full text-left text-sm whitespace-nowrap min-w-[800px]">
             <thead>
               <tr className="text-gray-400 border-b border-gray-100">
-                <th className="p-4">Üye ID</th>
+                <th className="p-4 w-32">QR Kod / ID</th>
                 <th className="p-4">Ad Soyad / Tel</th>
                 <th className="p-4">Parsel</th>
                 <th className="p-4">Tarihler</th>
@@ -161,7 +164,7 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
             </thead>
             <tbody>
               {members
-                .filter((m: any) => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .filter((m: any) => m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.id.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((rawMember: any) => {
                 
                 const { total, remaining, isFuture } = calculateDays(rawMember);
@@ -172,7 +175,15 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
 
                 return (
                   <tr key={m.id} className={`border-b border-gray-50 ${isExpiringSoon ? "bg-red-50" : "hover:bg-gray-50"} transition-colors`}>
-                    <td className="p-4 font-mono text-gray-500">{m.id}</td>
+                    
+                    {/* 🚀 LİSTEDE KOCAMAN QR KOD GÖRÜNÜMÜ EKLENDİ */}
+                    <td className="p-4 flex flex-col items-start gap-2">
+                      <div className="bg-white p-1.5 rounded-lg border-2 border-gray-200 shadow-sm shrink-0">
+                        <QRCodeSVG value={m.id} size={54} />
+                      </div>
+                      <span className="font-mono font-bold text-gray-500 text-xs tracking-wider">{m.id}</span>
+                    </td>
+
                     <td className="p-4 font-bold text-gray-800">{m.name}<br/><span className="font-normal text-xs text-gray-500">{m.phone}</span></td>
                     <td className="p-4 font-bold">{m.parcel}</td>
                     <td className="p-4">
@@ -241,22 +252,27 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
 
               <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
                 
-                {/* TEPEDEKİ DURUM KARTI */}
-                <div className={`rounded-2xl p-6 text-white shadow-md relative overflow-hidden ${
+                {/* TEPEDEKİ DURUM KARTI VE BÜYÜK QR KODU */}
+                <div className={`rounded-2xl p-6 text-white shadow-md relative overflow-hidden flex justify-between items-center ${
                     selectedMember.status === 'pending' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
                     selectedMember.isFuture ? 'bg-gradient-to-br from-blue-500 to-blue-700' : 'bg-gradient-to-br from-green-500 to-green-700'
                   }`}>
-                  <div className="absolute top-0 right-0 p-4 opacity-20"><ShieldCheck size={80} /></div>
-                  <p className="text-white/80 text-xs font-bold tracking-widest uppercase mb-1">Üye ID: {selectedMember.id}</p>
-                  <h3 className="text-2xl font-black mb-1 relative z-10">{selectedMember.name}</h3>
-                  <div className="inline-flex items-center gap-1 bg-white/20 px-2 py-1 rounded text-xs font-bold backdrop-blur-sm mt-2">
-                    {selectedMember.status === 'pending' ? <AlertTriangle size={14} /> : selectedMember.isFuture ? <Clock size={14} /> : <Check size={14} />} 
-                    {selectedMember.status === 'pending' ? "Onay Bekliyor" : selectedMember.isFuture ? "İleri Tarihli Kayıt" : "Aktif Üyelik"}
+                  <div>
+                    <p className="text-white/80 text-xs font-bold tracking-widest uppercase mb-1">Üye ID: {selectedMember.id}</p>
+                    <h3 className="text-2xl font-black mb-1 relative z-10">{selectedMember.name}</h3>
+                    <div className="inline-flex items-center gap-1 bg-white/20 px-2 py-1 rounded text-xs font-bold backdrop-blur-sm mt-2">
+                      {selectedMember.status === 'pending' ? <AlertTriangle size={14} /> : selectedMember.isFuture ? <Clock size={14} /> : <Check size={14} />} 
+                      {selectedMember.status === 'pending' ? "Onay Bekliyor" : selectedMember.isFuture ? "İleri Tarihli Kayıt" : "Aktif Üyelik"}
+                    </div>
+                  </div>
+                  
+                  {/* Profil İçindeki QR da biraz büyütüldü */}
+                  <div className="bg-white p-2 rounded-xl shadow-inner shrink-0">
+                    <QRCodeSVG value={selectedMember.id} size={70} />
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {/* KİMLİK BİLDİRİM (KBS) LİSTESİ */}
                   <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
@@ -287,7 +303,6 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                     )}
                   </div>
 
-                  {/* İLETİŞİM BİLGİLERİ */}
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4">
                     <div className="bg-gray-200 p-3 rounded-lg text-gray-600"><Phone size={20} /></div>
                     <div className="flex-1">
@@ -316,7 +331,6 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                     </div>
                   </div>
 
-                  {/* TARİH VE KONAKLAMA BİLGİLERİ */}
                   <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center gap-4">
                     <div className="bg-indigo-100 p-3 rounded-lg text-indigo-600"><CalendarDays size={20} /></div>
                     <div className="flex-1 flex justify-between">
@@ -366,7 +380,6 @@ export default function TabMembers({ pending, members, onApprove, onUpdateMember
                 </div>
               </div>
 
-              {/* ALT AKSİYON BUTONLARI (Duruma göre değişir) */}
               <div className="p-4 sm:p-6 border-t border-gray-100 bg-white grid grid-cols-2 gap-3 pb-8 sm:pb-6">
                 {selectedMember.status === 'pending' ? (
                   <>
