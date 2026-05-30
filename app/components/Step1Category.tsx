@@ -24,14 +24,19 @@ export default function Step1Category({ data, setData, onNext, slideVariants }: 
     fetchVariants();
   }, []);
 
-  const handleSelectCategory = (areaGroup: any) => {
+ const handleSelectCategory = (areaGroup: any) => {
     setData({ 
       ...data, 
       categoryGroup: areaGroup.name,
       allOptions: areaGroup.allVariations, 
-      category: areaGroup.allVariations[0], // Step 2 dinamik olarak asıl uygun olanı seçecek
+      category: areaGroup.allVariations[0], 
       package: null 
     });
+    
+    // 🚀 MADDE 3: TIKLAR TIKLAMAZ DİĞER SAYFAYA GEÇ (300ms gecikme UX için idealdir)
+    setTimeout(() => {
+      onNext();
+    }, 300);
   };
 
   const getStartingPrice = (variations: any[]) => {

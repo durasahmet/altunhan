@@ -16,8 +16,15 @@ interface AreaVariant {
   occupied: number;
   maintenance_count: number;
   price_daily: number;
+  price_2days: number;
   price_3days: number;
+  price_4days: number;
+  price_5days: number;
+  price_6days: number;
   price_weekly: number;
+  price_8days: number;
+  price_9days: number;
+  price_10days: number;
   price_monthly: number;
   price_6months: number;
   price_yearly: number;
@@ -41,20 +48,38 @@ const emptyVariant = (): AreaVariant => ({
   occupied: 0,
   maintenance_count: 0,
   price_daily: 0,
+  price_2days: 0,
   price_3days: 0,
+  price_4days: 0,
+  price_5days: 0,
+  price_6days: 0,
   price_weekly: 0,
+  price_8days: 0,
+  price_9days: 0,
+  price_10days: 0,
   price_monthly: 0,
   price_6months: 0,
   price_yearly: 0,
 });
 
-const PRICE_LABELS: { label: string; key: keyof AreaVariant; icon: string }[] = [
-  { label: "Günlük",   key: "price_daily",   icon: "1G" },
-  { label: "3 Günlük", key: "price_3days",   icon: "3G" },
-  { label: "Haftalık", key: "price_weekly",  icon: "7G" },
-  { label: "Aylık",    key: "price_monthly", icon: "1A" },
-  { label: "6 Aylık",  key: "price_6months", icon: "6A" },
-  { label: "Yıllık",   key: "price_yearly",  icon: "1Y" },
+// 🚀 Fiyatları kalabalık olmasın diye iki gruba böldük
+const PRICE_LABELS_SHORT: { label: string; key: keyof AreaVariant; icon: string }[] = [
+  { label: "1 Gün", key: "price_daily", icon: "1G" },
+  { label: "2 Gün", key: "price_2days", icon: "2G" },
+  { label: "3 Gün", key: "price_3days", icon: "3G" },
+  { label: "4 Gün", key: "price_4days", icon: "4G" },
+  { label: "5 Gün", key: "price_5days", icon: "5G" },
+  { label: "6 Gün", key: "price_6days", icon: "6G" },
+  { label: "7 Gün (Haftalık)", key: "price_weekly", icon: "7G" },
+  { label: "8 Gün", key: "price_8days", icon: "8G" },
+  { label: "9 Gün", key: "price_9days", icon: "9G" },
+  { label: "10 Gün", key: "price_10days", icon: "10G" },
+];
+
+const PRICE_LABELS_LONG: { label: string; key: keyof AreaVariant; icon: string }[] = [
+  { label: "Aylık", key: "price_monthly", icon: "1A" },
+  { label: "6 Aylık", key: "price_6months", icon: "6A" },
+  { label: "Yıllık", key: "price_yearly", icon: "1Y" },
 ];
 
 const CAPACITY_OPTIONS = [
@@ -79,7 +104,6 @@ function VariantEditor({
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
 
-  // Aktif idx sınır kontrolü
   const safeIdx = Math.min(activeIdx, variants.length - 1);
   const activeVariant = variants[safeIdx];
 
@@ -95,7 +119,6 @@ function VariantEditor({
 
   return (
     <div className="space-y-3">
-      {/* Başlık + Ekle */}
       <div className="flex justify-between items-center">
         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
           <Users size={14} /> Kapasite Kategorileri
@@ -108,9 +131,7 @@ function VariantEditor({
         </button>
       </div>
 
-      {/* Ana İki Sütun */}
       <div className="flex gap-3 min-h-[320px] flex-col sm:flex-row">
-        {/* Sol: Kategori Listesi */}
         <div className="w-full sm:w-44 shrink-0 flex flex-col gap-1.5">
           {variants.map((v, idx) => (
             <button
@@ -126,7 +147,6 @@ function VariantEditor({
               <span className="truncate flex-1">{v.person_capacity}</span>
               {idx === safeIdx && <Check size={13} className="shrink-0" />}
 
-              {/* Sil butonu */}
               {variants.length > 1 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}
@@ -143,7 +163,6 @@ function VariantEditor({
           ))}
         </div>
 
-        {/* Sağ: Seçili Kategorinin Detayları */}
         {activeVariant && (
           <AnimatePresence mode="wait">
             <motion.div
@@ -154,7 +173,6 @@ function VariantEditor({
               transition={{ duration: 0.15 }}
               className="flex-1 bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-4"
             >
-              {/* Kapasite Tipi + Stok */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -184,17 +202,17 @@ function VariantEditor({
                 </div>
               </div>
 
-              {/* Fiyat Listesi */}
+              {/* Kısa Dönem Fiyat Listesi */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <CreditCard size={14} className="text-green-600" />
                   <span className="text-[10px] font-bold text-green-700 uppercase tracking-wider">
-                    {activeVariant.person_capacity} — Fiyat Listesi
+                    Kısa Dönem Fiyatları (1 - 10 Gün)
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {PRICE_LABELS.map(({ label, key, icon }) => (
-                    <div key={key} className="bg-white rounded-xl border border-green-100 p-2.5 space-y-1 shadow-sm">
+                  {PRICE_LABELS_SHORT.map(({ label, key, icon }) => (
+                    <div key={key} className="bg-white rounded-xl border border-green-100 p-2 space-y-1 shadow-sm">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[9px] font-black text-green-600 bg-green-100 px-1.5 py-0.5 rounded">
                           {icon}
@@ -217,6 +235,41 @@ function VariantEditor({
                   ))}
                 </div>
               </div>
+
+              {/* Uzun Dönem Fiyat Listesi */}
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex items-center gap-2 mb-3 mt-2">
+                  <CreditCard size={14} className="text-blue-600" />
+                  <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
+                    Uzun Dönem Fiyatları
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {PRICE_LABELS_LONG.map(({ label, key, icon }) => (
+                    <div key={key} className="bg-white rounded-xl border border-blue-100 p-2 space-y-1 shadow-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">
+                          {icon}
+                        </span>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">
+                          {label}
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full p-1.5 rounded-lg border border-gray-100 font-bold text-gray-800 text-sm outline-none focus:border-blue-400 bg-gray-50"
+                          value={(activeVariant as any)[key]}
+                          onChange={(e) => onUpdateVariant(safeIdx, key as string, e.target.value)}
+                        />
+                        <span className="text-xs font-black text-gray-400">₺</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </motion.div>
           </AnimatePresence>
         )}
@@ -249,7 +302,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     fetchVariants();
   }, [areas]);
 
-  // ─── MODAL STATE ─────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentArea, setCurrentArea] = useState<Partial<Area>>({
@@ -290,7 +342,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     setIsModalOpen(true);
   };
 
-  // ─── VARİANT OPERASYONLARI ───────────────────────────────────────────────────
   const addVariant = () => {
     setCurrentArea({
       ...currentArea,
@@ -310,7 +361,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     setCurrentArea({ ...currentArea, variants });
   };
 
-  // ─── KAYDET ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const areaPayload = {
       name: currentArea.name,
@@ -337,6 +387,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
       await supabase.from("area_variants").delete().eq("area_id", areaId);
     }
 
+    // 🚀 BÜTÜN FİYATLAR VERİTABANINA DÜZGÜNCE KAYDEDİLİYOR
     const variantPayloads = (currentArea.variants || []).map((v) => ({
       area_id: areaId,
       person_capacity: v.person_capacity,
@@ -344,8 +395,15 @@ export default function TabAreas({ areas }: { areas: any[] }) {
       occupied: v.occupied || 0,
       maintenance_count: v.maintenance_count || 0,
       price_daily: parseInt(String(v.price_daily)) || 0,
+      price_2days: parseInt(String(v.price_2days)) || 0,
       price_3days: parseInt(String(v.price_3days)) || 0,
+      price_4days: parseInt(String(v.price_4days)) || 0,
+      price_5days: parseInt(String(v.price_5days)) || 0,
+      price_6days: parseInt(String(v.price_6days)) || 0,
       price_weekly: parseInt(String(v.price_weekly)) || 0,
+      price_8days: parseInt(String(v.price_8days)) || 0,
+      price_9days: parseInt(String(v.price_9days)) || 0,
+      price_10days: parseInt(String(v.price_10days)) || 0,
       price_monthly: parseInt(String(v.price_monthly)) || 0,
       price_6months: parseInt(String(v.price_6months)) || 0,
       price_yearly: parseInt(String(v.price_yearly)) || 0,
@@ -374,7 +432,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     setIsModalOpen(false);
   };
 
-  // ─── SİL ─────────────────────────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bu alanı ve tüm alt kategorilerini silmek istiyor musunuz?")) return;
     await supabase.from("area_variants").delete().eq("area_id", id);
@@ -383,7 +440,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     else alert("Silinirken hata: " + error.message);
   };
 
-  // ─── BAKIM (Sadece Varyant İçin Çalışır) ────────────────────────────────────
   const handleMaintenance = async (variant: AreaVariant) => {
     const input = window.prompt(
       `${variant.person_capacity} için bakımdaki parsel sayısını girin (0 = aktif):`,
@@ -412,10 +468,8 @@ export default function TabAreas({ areas }: { areas: any[] }) {
     } else alert("Bakım güncellenirken hata: " + error.message);
   };
 
-  // ─── RENDER ───────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Başlık */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold text-gray-800">
           Tesis Alanları ve Fiyat Yönetimi
@@ -428,10 +482,8 @@ export default function TabAreas({ areas }: { areas: any[] }) {
         </button>
       </div>
 
-      {/* Alan Listesi */}
       <div className="grid grid-cols-1 gap-4">
         {areaList.map((area) => {
-          // 🚀 YENİ EKLENDİ: Ana Kart için Toplamları Hesapla
           const totalCapacity = area.variants?.reduce((acc, v) => acc + v.capacity, 0) || 0;
           const totalOccupied = area.variants?.reduce((acc, v) => acc + v.occupied, 0) || 0;
           const totalMaintenance = area.variants?.reduce((acc, v) => acc + v.maintenance_count, 0) || 0;
@@ -442,7 +494,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
               key={area.id}
               className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:border-orange-200"
             >
-              {/* Ana Kart Başlığı (ÖZET GÖRÜNÜM) */}
               <div className="p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                 <div className="flex-1 w-full lg:w-auto">
                   <div className="flex items-center gap-3 mb-2">
@@ -472,7 +523,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                     </div>
                   </div>
 
-                  {/* Toplam Barlar */}
                   <div className="pl-11 mt-3">
                     <div className="flex justify-between items-center text-sm mb-1">
                       <span className="text-gray-500">
@@ -509,7 +559,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                 </div>
               </div>
 
-              {/* Varyantlar Detayları (Açılır Menü) */}
               <AnimatePresence>
                 {area.isOpen && (
                   <motion.div
@@ -554,7 +603,7 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                                   />
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                                  {PRICE_LABELS.map(
+                                  {PRICE_LABELS_SHORT.concat(PRICE_LABELS_LONG).map(
                                     ({ label, key }) =>
                                       (v as any)[key] > 0 && (
                                         <span
@@ -596,7 +645,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
         })}
       </div>
 
-      {/* ─── MODAL ─────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
@@ -606,7 +654,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="w-full max-w-3xl bg-white rounded-[32px] shadow-2xl overflow-hidden my-8 border border-white/20"
             >
-              {/* Modal Başlık */}
               <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
                 <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
                   <Settings className="text-orange-500" size={24} />
@@ -621,7 +668,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
               </div>
 
               <div className="p-6 space-y-6">
-                {/* Bilgi */}
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 text-sm text-blue-800 font-medium">
                   <Info className="text-blue-500 shrink-0 mt-0.5" size={18} />
                   <p>
@@ -630,7 +676,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                   </p>
                 </div>
 
-                {/* Alan Bilgileri */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
@@ -663,7 +708,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                   </div>
                 </div>
 
-                {/* ─── KAPASİTE KATEGORİLERİ (Sol-Sağ Panel) ─────────────────── */}
                 <VariantEditor
                   variants={currentArea.variants || [emptyVariant()]}
                   onAddVariant={addVariant}
@@ -671,7 +715,6 @@ export default function TabAreas({ areas }: { areas: any[] }) {
                   onUpdateVariant={updateVariant}
                 />
 
-                {/* Harita */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                     <MapPin size={16} /> Harita Konumu

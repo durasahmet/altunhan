@@ -10,8 +10,6 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
   const [isFull, setIsFull] = useState(false);
   const [availableSpots, setAvailableSpots] = useState<number | null>(null);
 
-  // 🚀 MANTIKSAL KONTROL: Bu bir "Alan" kiralama mı yoksa "Hazır Ürün" (Karavan vb.) kiralama mı?
-  // İsminde "Alan" geçenleri (veya çadırı) sabit kapasiteli kabul ediyoruz.
   const isFixedCapacityArea = data.categoryGroup?.toLowerCase().includes("alan") || false;
 
   const absoluteMaxCapacity = data.allOptions?.reduce((max: number, opt: any) => {
@@ -22,13 +20,10 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
   useEffect(() => {
     if (!data.allOptions || data.allOptions.length === 0) return;
 
-    // Eğer sabit bir alan kiralamasıysa, zaten tek bir varyasyon vardır (Örn: "Standart / Çadır")
-    // Değilse, kişi sayısına göre dinamik eşleştirme yap.
     let matchedVariant;
     
     if (isFixedCapacityArea) {
-       matchedVariant = data.allOptions[0]; // İlkini (veya tekini) al
-       // Arka planda misafir sayısını da standart bir limitte tutalım (Örn: 2 Yetişkin, 0 Çocuk)
+       matchedVariant = data.allOptions[0]; 
        if (data.guests?.adults !== 2) {
            setData((prev: any) => ({ ...prev, guests: { adults: 2, children: 0 } }));
        }
@@ -49,13 +44,32 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
         }) || sortedOptions[sortedOptions.length - 1]; 
     }
 
+    // 🚀 BÜTÜN FİYATLAR ARTIK VERİTABANINDAN (PANELDEN) DİNAMİK GELİYOR
+    const m = matchedVariant;
     const availablePackages = [];
-    if (matchedVariant.price_daily > 0) availablePackages.push({ id: "daily", name: "Günlük", price: matchedVariant.price_daily, duration: "1 Gün" });
-    if (matchedVariant.price_3days > 0) availablePackages.push({ id: "3days", name: "3 Günlük", price: matchedVariant.price_3days, duration: "3 Gün" });
-    if (matchedVariant.price_weekly > 0) availablePackages.push({ id: "weekly", name: "Haftalık", price: matchedVariant.price_weekly, duration: "7 Gün" });
-    if (matchedVariant.price_monthly > 0) availablePackages.push({ id: "monthly", name: "Aylık", price: matchedVariant.price_monthly, duration: "30 Gün" });
-    if (matchedVariant.price_6months > 0) availablePackages.push({ id: "6months", name: "6 Aylık", price: matchedVariant.price_6months, duration: "180 Gün" });
-    if (matchedVariant.price_yearly > 0) availablePackages.push({ id: "yearly", name: "Yıllık", price: matchedVariant.price_yearly, duration: "365 Gün" });
+    
+    if (m.price_daily > 0) availablePackages.push({ id: "daily", name: "1 Günlük", price: m.price_daily, duration: "1 Gün" });
+    if (m.price_2days > 0) availablePackages.push({ id: "2days", name: "2 Günlük", price: m.price_2days, duration: "2 Gün" });
+    if (m.price_3days > 0) availablePackages.push({ id: "3days", name: "3 Günlük", price: m.price_3days, duration: "3 Gün" });
+    if (m.price_4days > 0) availablePackages.push({ id: "4days", name: "4 Günlük", price: m.price_4days, duration: "4 Gün" });
+    if (m.price_5days > 0) availablePackages.push({ id: "5days", name: "5 Günlük", price: m.price_5days, duration: "5 Gün" });
+    if (m.price_6days > 0) availablePackages.push({ id: "6days", name: "6 Günlük", price: m.price_6days, duration: "6 Gün" });
+    if (m.price_weekly > 0) availablePackages.push({ id: "weekly", name: "7 Günlük (Haftalık)", price: m.price_weekly, duration: "7 Gün" });
+    if (m.price_8days > 0) availablePackages.push({ id: "8days", name: "8 Günlük", price: m.price_8days, duration: "8 Gün" });
+    if (m.price_9days > 0) availablePackages.push({ id: "9days", name: "9 Günlük", price: m.price_9days, duration: "9 Gün" });
+    if (m.price_10days > 0) availablePackages.push({ id: "10days", name: "10 Günlük", price: m.price_10days, duration: "10 Gün" });
+    if (m.price_monthly > 0) availablePackages.push({ id: "monthly", name: "Aylık", price: m.price_monthly, duration: "30 Gün" });
+    if (m.price_6months > 0) availablePackages.push({ id: "6months", name: "6 Aylık", price: m.price_6months, duration: "180 Gün" });
+    
+    // 🚀 YILLIK İÇİN "FİYAT ALINIZ" MANTIĞI
+    const isKaravanKiralama = data.categoryGroup?.toLowerCase().includes("karavan") && 
+                              (data.categoryGroup?.toLowerCase().includes("kiralama") || data.categoryGroup?.toLowerCase().includes("lüks") || data.categoryGroup?.toLowerCase().includes("lux"));
+    
+    if (isKaravanKiralama) {
+      availablePackages.push({ id: "yearly", name: "Yıllık", price: 0, displayPrice: "Fiyat Alınız", duration: "365 Gün" });
+    } else if (m.price_yearly > 0) {
+      availablePackages.push({ id: "yearly", name: "Yıllık", price: m.price_yearly, duration: "365 Gün" });
+    }
 
     const isVariantChanged = data.category?.id !== matchedVariant.id;
     const arePackagesMissing = data.category?.packages === undefined;
@@ -88,7 +102,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
   };
 
   const updateGuests = (type: 'adults' | 'children', operation: 'plus' | 'minus') => {
-    if (isFixedCapacityArea) return; // Sabit alanlarda butonlar çalışmaz
+    if (isFixedCapacityArea) return; 
 
     const currentAdults = data.guests?.adults || 1;
     const currentChildren = data.guests?.children || 0;
@@ -196,7 +210,6 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           </label>
           
           {isFixedCapacityArea ? (
-            // 🚀 EĞER ALAN SEÇİLDİYSE BU BİLGİ ÇIKACAK
             <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 shadow-sm">
                <div className="flex items-start gap-3">
                  <Info className="text-blue-500 shrink-0 mt-0.5" size={20} />
@@ -208,7 +221,6 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
                </div>
             </div>
           ) : (
-            // EĞER HAZIR KARAVAN SEÇİLDİYSE NORMAL SAYAÇ ÇIKACAK
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-2xl border-2 border-gray-200 flex justify-between items-center">
@@ -241,7 +253,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           )}
         </div>
 
-        {/* BAŞLANGIÇ TARİHİ SEÇİMİ */}
+        {/* BAŞLANGIÇ TARİHİ SEÇİMİ VE SAATLER */}
         <div>
           <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
             <Calendar className="text-orange-500" size={18} /> Başlangıç Tarihi
@@ -253,6 +265,11 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
             onChange={(e) => setData({ ...data, startDate: e.target.value })}
             min={new Date().toISOString().split('T')[0]} 
           />
+          {/* 🚀 GİRİŞ ÇIKIŞ SAATLERİ (Eklendi) */}
+          <div className="flex gap-4 mt-3 text-xs font-black text-gray-500">
+            <span className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm flex items-center gap-1"><Clock size={12} className="text-green-500"/> Giriş: 12:00</span>
+            <span className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm flex items-center gap-1"><Clock size={12} className="text-red-500"/> Çıkış: 10:00</span>
+          </div>
         </div>
 
         {/* PAKET SEÇİMİ VE DİNAMİK FİYATLAR */}
@@ -262,7 +279,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           </label>
           
           {availablePackages.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {availablePackages.map((pkg: any) => {
                 const isSelected = data.package?.id === pkg.id;
                 return (
@@ -276,13 +293,17 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
                     }`}
                   >
                     {isSelected && (
-                      <div className="absolute top-3 right-3 text-orange-500">
-                        <CheckCircle2 size={18} />
+                      <div className="absolute top-2 right-2 text-orange-500">
+                        <CheckCircle2 size={16} />
                       </div>
                     )}
-                    <p className={`font-black ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{pkg.name}</p>
-                    <p className="text-xs font-bold text-gray-400 mt-1">{pkg.duration}</p>
-                    <p className="text-sm font-black text-green-600 mt-2">{pkg.price.toLocaleString('tr-TR')} ₺</p>
+                    <p className={`font-black text-sm ${isSelected ? 'text-orange-900' : 'text-gray-800'}`}>{pkg.name}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-0.5">{pkg.duration}</p>
+                    
+                    {/* 🚀 FİYAT GÖSTERİMİ: "Fiyat Alınız" desteği eklendi */}
+                    <p className="text-sm font-black text-green-600 mt-2">
+                      {pkg.displayPrice ? pkg.displayPrice : `${pkg.price.toLocaleString('tr-TR')} ₺`}
+                    </p>
                   </button>
                 )
               })}
@@ -290,7 +311,7 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
           ) : (
             <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 flex items-center gap-3">
               <AlertTriangle className="text-orange-500" size={24} />
-              <p className="text-sm font-bold text-orange-800">Bu alan/kişi kapasitesi için henüz bir fiyat paketi tanımlanmamış.</p>
+              <p className="text-sm font-bold text-orange-800">Bu alan için henüz bir fiyat paketi tanımlanmamış. Lütfen Admin Panelden ekleyin.</p>
             </div>
           )}
         </div>
@@ -299,15 +320,18 @@ export default function Step2Date({ data, setData, onNext, onPrev, slideVariants
         {data.startDate && data.package && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             
-            <div className="bg-orange-100 border border-orange-200 p-4 rounded-xl flex justify-between items-center shadow-sm">
-              <div>
-                <p className="text-xs font-bold text-orange-600 uppercase">Çıkış Tarihiniz</p>
-                <p className="text-lg font-black text-orange-900">{formattedEndDate()}</p>
+            {/* Yıllık fiyat alınız seçilmediyse çıkış tarihini göster */}
+            {data.package.id !== 'yearly' && (
+              <div className="bg-orange-100 border border-orange-200 p-4 rounded-xl flex justify-between items-center shadow-sm">
+                <div>
+                  <p className="text-xs font-bold text-orange-600 uppercase">Çıkış Tarihiniz</p>
+                  <p className="text-lg font-black text-orange-900">{formattedEndDate()}</p>
+                </div>
+                <div className="bg-white p-2 rounded-lg shadow-sm">
+                   <Calendar className="text-orange-500" size={24} />
+                </div>
               </div>
-              <div className="bg-white p-2 rounded-lg shadow-sm">
-                 <Calendar className="text-orange-500" size={24} />
-              </div>
-            </div>
+            )}
 
             {isChecking ? (
                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center gap-3">

@@ -103,7 +103,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
               onClick={() => setIsModalOpen(true)}
               className="w-full sm:w-auto px-8 py-4 bg-white/10 backdrop-blur-md border border-white/30 text-white rounded-full font-black text-lg transition-all hover:bg-white/20 flex items-center justify-center gap-3"
             >
-              <PhoneCall size={22} className="text-orange-400" /> Detaylı Bilgi & Ön Talep
+              <PhoneCall size={22} className="text-orange-400" /> Detaylı Bilgi İçin Ön Talep Formu
             </button>
           </div>
         </div>
@@ -198,6 +198,7 @@ export default function Step0Landing({ onStart }: { onStart: () => void }) {
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">İlgi Alanınız</label>
                         <select className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-orange-500 font-bold text-gray-800 bg-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                           <option>Karavan Kiralama</option>
+                          <option>Karavan Alanı</option>
                           <option>Çadır / Parsel Alanı</option>
                         </select>
                       </div>
