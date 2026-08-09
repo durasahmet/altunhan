@@ -6,8 +6,9 @@ import { CheckCircle2, Copy, Check, MessageCircle, AlertTriangle, QrCode } from 
 export default function Step5Success({ data, reservationCode, slideVariants }: any) {
   const [copied, setCopied] = useState(false);
 
-  const ibanNumber = "TR28 0001 0021 6273 2970 1150 03";
-  const whatsappNumber = "0540 747 22 22"; // 🚀 Güncellenen WhatsApp Numarası
+  // 🚀 Güncellenen Banka Bilgileri
+  const ibanNumber = "TR38 0006 7010 0000 0197 7450 69";
+  const whatsappNumber = "0540 747 22 22";
 
   // İBAN Kopyalama Fonksiyonu
   const handleCopyIban = () => {
@@ -39,10 +40,10 @@ export default function Step5Success({ data, reservationCode, slideVariants }: a
           
           <div className="flex-1 w-full">
             <p className="text-xs text-gray-400 font-bold uppercase mb-1">Alıcı Adı Soyadı</p>
-            <p className="font-bold text-gray-800 mb-4">Muhammed Korkuc</p>
+            <p className="font-black text-gray-800 mb-4 text-sm">OLİMPOS YOLCU TAŞIMACILIĞI ANONİM ŞİRKETİ</p>
 
             <p className="text-xs text-gray-400 font-bold uppercase mb-1">IBAN Numarası</p>
-            <div className="flex items-center justify-between bg-gray-50 p-2 pl-3 rounded-lg border border-gray-200 mb-4">
+            <div className="flex items-center justify-between bg-gray-50 p-2 pl-3 rounded-lg border border-gray-200 mb-3">
               <p className="font-mono font-bold text-gray-800 text-xs sm:text-sm tracking-wide">{ibanNumber}</p>
               <button 
                 onClick={handleCopyIban} 
@@ -51,6 +52,18 @@ export default function Step5Success({ data, reservationCode, slideVariants }: a
               >
                 {copied ? <Check size={18} /> : <Copy size={18} />}
               </button>
+            </div>
+
+            {/* 🚀 YENİ EKLENEN SWIFT KODLARI BÖLÜMÜ */}
+            <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 mb-4 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-gray-500">SWIFT Kodu (EUR, USD):</span>
+                <span className="font-mono font-black text-blue-700">YAPITRISXXX</span>
+              </div>
+              <div className="flex justify-between items-center text-xs border-t border-blue-100/50 pt-2">
+                <span className="font-bold text-gray-500">SWIFT Kodu (Diğer):</span>
+                <span className="font-mono font-black text-blue-700">YAPITRISFEX</span>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
@@ -95,7 +108,6 @@ export default function Step5Success({ data, reservationCode, slideVariants }: a
             <div className="bg-green-500 p-2 rounded-lg flex-shrink-0">
               <MessageCircle className="text-white" size={20} />
             </div>
-            {/* WhatsApp numarasına tıklanabilir link özelliği eklendi */}
             <a href={`https://wa.me/90${whatsappNumber.replace(/\s/g, '').substring(1)}`} target="_blank" rel="noopener noreferrer" className="font-black text-green-800 text-lg tracking-wide hover:underline cursor-pointer">
               {whatsappNumber}
             </a>
