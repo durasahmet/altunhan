@@ -7,7 +7,7 @@ export default function Step5Success({ data, reservationCode, slideVariants }: a
   const [copied, setCopied] = useState(false);
 
   // 🚀 Güncellenen Banka Bilgileri
-  const ibanNumber = "TR38 0006 7010 0000 0197 7450 69";
+  const ibanNumber = "TR28 0001 0021 6273 2970 1150 03";
   const whatsappNumber = "0540 747 22 22";
 
   // İBAN Kopyalama Fonksiyonu
@@ -40,7 +40,7 @@ export default function Step5Success({ data, reservationCode, slideVariants }: a
           
           <div className="flex-1 w-full">
             <p className="text-xs text-gray-400 font-bold uppercase mb-1">Alıcı Adı Soyadı</p>
-            <p className="font-black text-gray-800 mb-4 text-sm">OLİMPOS YOLCU TAŞIMACILIĞI ANONİM ŞİRKETİ</p>
+            <p className="font-black text-gray-800 mb-4 text-sm">Muhammed Korkuc</p>
 
             <p className="text-xs text-gray-400 font-bold uppercase mb-1">IBAN Numarası</p>
             <div className="flex items-center justify-between bg-gray-50 p-2 pl-3 rounded-lg border border-gray-200 mb-3">
@@ -54,7 +54,7 @@ export default function Step5Success({ data, reservationCode, slideVariants }: a
               </button>
             </div>
 
-            {/* 🚀 YENİ EKLENEN SWIFT KODLARI BÖLÜMÜ */}
+            {/* 🚀 SWIFT KODLARI BÖLÜMÜ */}
             <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 mb-4 space-y-2">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-bold text-gray-500">SWIFT Kodu (EUR, USD):</span>
